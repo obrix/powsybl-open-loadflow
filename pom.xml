@@ -82,7 +82,7 @@
             **/generated/**/*
         </sonar.exclusions>
 
-        <powsyblcore.version>3.0.0</powsyblcore.version>
+        <powsyblcore.version>3.1.0-SNAPSHOT</powsyblcore.version>
     </properties>
 
     <build>
@@ -365,6 +365,11 @@
             <version>${slf4jtoys.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.powsybl</groupId>
+            <artifactId>powsybl-ieee-cdf-converter</artifactId>
+            <version>${powsyblcore.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.powsybl</groupId>
             <artifactId>powsybl-iidm-api</artifactId>
