@@ -20,7 +20,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -39,11 +38,11 @@ public class IeeeCdfTest {
     }
 
     private static LoadFlowParameters createParameters(String slackBusId) {
-        LoadFlowParameters parameters = new LoadFlowParameters();
+        LoadFlowParameters parameters = new LoadFlowParameters()
+                .setNoGeneratorReactiveLimits(true);
         OpenLoadFlowParameters parametersExt = new OpenLoadFlowParameters()
                 .setSlackBusSelector(new NameSlackBusSelector(slackBusId))
-                .setDistributedSlack(false)
-                .setReactiveLimits(false);
+                .setDistributedSlack(false);
         parameters.addExtension(OpenLoadFlowParameters.class, parametersExt);
         return parameters;
     }
