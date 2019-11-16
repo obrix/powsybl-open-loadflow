@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 import java.util.TreeMap;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -55,11 +56,9 @@ public class IeeeCdfTest {
         return voltages;
     }
 
-    @Test
-    public void testIeee14() {
-        Network network = IeeeCdfNetworkFactory.create14();
+    private void testIeee(Network network, String slackBusId, double epsV, double epsAngle) {
         Map<String, Pair<Double, Double>> initialVoltages = extractVoltages(network);
-        LoadFlowParameters parameters = createParameters("VL1_0");
+        LoadFlowParameters parameters = createParameters(slackBusId);
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isOk());
         Map<String, Pair<Double, Double>> olfVoltages = extractVoltages(network);
@@ -69,7 +68,38 @@ public class IeeeCdfTest {
             double initialAngle = e.getValue().getRight();
             double v = olfVoltages.get(busId).getLeft();
             double angle = olfVoltages.get(busId).getRight();
-            System.out.println(busId + ": " + initialV + " " + v);
+            assertEquals(initialV, v, epsV);
+            assertEquals(initialAngle, angle, epsAngle);
         }
+    }
+
+    @Test
+    public void testIeee9() {
+        testIeee(IeeeCdfNetworkFactory.create9(), "VL1_0", 10e-2, 10e-4);
+    }
+
+    @Test
+    public void testIeee14() {
+        testIeee(IeeeCdfNetworkFactory.create14(), "VL1_0", 10e-2, 10e-4);
+    }
+
+    @Test
+    public void testIeee30() {
+        testIeee(IeeeCdfNetworkFactory.create30(), "VL1_0", 10e-2, 10e-4);
+    }
+
+    @Test
+    public void testIeee57() {
+        testIeee(IeeeCdfNetworkFactory.create57(), "VL1_0", 10e-2, 10e-4);
+    }
+
+    @Test
+    public void testIeee118() {
+        testIeee(IeeeCdfNetworkFactory.create118(), "VL1_0", 10e-2, 10e-4);
+    }
+
+    @Test
+    public void testIeee300() {
+        testIeee(IeeeCdfNetworkFactory.create300(), "VL1_0", 10e-2, 10e-4);
     }
 }
