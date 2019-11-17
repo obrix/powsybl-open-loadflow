@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
  */
-public class IeeeCdfTest {
+public class IeeeCasesTest {
 
     private LoadFlow.Runner loadFlowRunner;
 
@@ -80,7 +80,7 @@ public class IeeeCdfTest {
 
     @Test
     public void testIeee14() {
-        testIeee(IeeeCdfNetworkFactory.create14(), "VL1_0", 10e-2, 10e-4);
+        testIeee(IeeeCdfNetworkFactory.create14(), "VL1_0", 10e-4, 10e-4);
     }
 
     @Test
@@ -90,12 +90,12 @@ public class IeeeCdfTest {
 
     @Test
     public void testIeee57() {
-        testIeee(IeeeCdfNetworkFactory.create57(), "VL1_0", 10e-2, 10e-4);
+        testIeee(IeeeCdfNetworkFactory.create57(), "VL1_0", 10e-2, 10e-1);
     }
 
     @Test
     public void testIeee118() {
-        testIeee(IeeeCdfNetworkFactory.create118(), "VL1_0", 10e-2, 10e-4);
+        testIeee(IeeeCdfNetworkFactory.create118(), "VL69_0", 10e-2, 10e-4);
     }
 
     @Test
