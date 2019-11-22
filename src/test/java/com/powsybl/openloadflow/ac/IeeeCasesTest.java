@@ -17,6 +17,7 @@ import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowProvider;
 import com.powsybl.openloadflow.network.NameSlackBusSelector;
 import org.apache.commons.lang3.tuple.Pair;
+import org.junit.Ignore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -79,26 +80,31 @@ public class IeeeCasesTest {
     }
 
     @Test
+    @Ignore
     public void testIeee14() {
         testIeee(IeeeCdfNetworkFactory.create14(), "VL1_0", 10e-4, 10e-4);
     }
 
     @Test
+    @Ignore
     public void testIeee30() {
         testIeee(IeeeCdfNetworkFactory.create30(), "VL1_0", 10e-2, 10e-4);
     }
 
     @Test
+    @Ignore
     public void testIeee57() {
-        testIeee(IeeeCdfNetworkFactory.create57(), "VL1_0", 10e-2, 10e-1);
+        testIeee(IeeeCdfNetworkFactory.create57(), "VL1_0", 10e-4, 10e-4);
     }
 
     @Test
+    @Ignore
     public void testIeee118() {
-        testIeee(IeeeCdfNetworkFactory.create118(), "VL69_0", 10e-2, 10e-4);
+        testIeee(IeeeCdfNetworkFactory.create118(), "VL69_0", 10e-4, 10e-4);
     }
 
     @Test
+    @Ignore
     public void testIeee300() {
         testIeee(IeeeCdfNetworkFactory.create300(), "VL1_0", 10e-2, 10e-4);
     }
