@@ -6,6 +6,10 @@
  */
 package com.powsybl.openloadflow.ac;
 
+import com.powsybl.commons.io.table.AsciiTableFormatter;
+import com.powsybl.commons.io.table.Column;
+import com.powsybl.commons.io.table.TableFormatter;
+import com.powsybl.commons.io.table.TableFormatterConfig;
 import com.powsybl.ieeecdf.converter.IeeeCdfNetworkFactory;
 import com.powsybl.iidm.network.Bus;
 import com.powsybl.iidm.network.Network;
@@ -20,17 +24,23 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Ignore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.StringWriter;
+import java.io.UncheckedIOException;
 import java.util.Map;
 import java.util.TreeMap;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
  */
 public class IeeeCasesTest {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(IeeeCasesTest.class);
 
     private LoadFlow.Runner loadFlowRunner;
 
@@ -63,15 +73,31 @@ public class IeeeCasesTest {
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isOk());
         Map<String, Pair<Double, Double>> olfVoltages = extractVoltages(network);
-        for (Map.Entry<String, Pair<Double, Double>> e : initialVoltages.entrySet()) {
-            String busId = e.getKey();
-            double initialV = e.getValue().getLeft();
-            double initialAngle = e.getValue().getRight();
-            double v = olfVoltages.get(busId).getLeft();
-            double angle = olfVoltages.get(busId).getRight();
-            assertEquals(initialV, v, epsV);
-            assertEquals(initialAngle, angle, epsAngle);
+        StringWriter writer = new StringWriter();
+        try (TableFormatter tableFormatter = new AsciiTableFormatter(writer, "Voltage diff", new TableFormatterConfig(),
+                     new Column("bus ID"), new Column("v0"), new Column("v"), new Column("dv"),
+                new Column("a0"), new Column("a"), new Column("da"))) {
+            for (Map.Entry<String, Pair<Double, Double>> e : initialVoltages.entrySet()) {
+                String busId = e.getKey();
+                double initialV = e.getValue().getLeft();
+                double initialAngle = e.getValue().getRight();
+                double v = olfVoltages.get(busId).getLeft();
+                double angle = olfVoltages.get(busId).getRight();
+//                assertEquals(initialV, v, epsV);
+//                assertEquals(initialAngle, angle, epsAngle);
+                tableFormatter.writeCell(busId)
+                        .writeCell(initialV)
+                        .writeCell(v)
+                        .writeCell(v - initialV)
+                        .writeCell(initialAngle)
+                        .writeCell(angle)
+                        .writeCell(angle - initialAngle);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
+        writer.flush();
+        LOGGER.info(writer.toString());
     }
 
     @Test
