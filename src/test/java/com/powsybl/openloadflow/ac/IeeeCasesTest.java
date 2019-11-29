@@ -33,6 +33,7 @@ import java.io.UncheckedIOException;
 import java.util.Map;
 import java.util.TreeMap;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -67,71 +68,83 @@ public class IeeeCasesTest {
         return voltages;
     }
 
-    private void testIeee(Network network, String slackBusId, double epsV, double epsAngle) {
+    private void logDiff(Map<String, Pair<Double, Double>> initialVoltages, Map<String, Pair<Double, Double>> olfVoltages) {
+        if (LOGGER.isDebugEnabled()) {
+            StringWriter writer = new StringWriter();
+            try (TableFormatter tableFormatter = new AsciiTableFormatter(writer, "Voltage diff", new TableFormatterConfig(),
+                    new Column("bus ID"), new Column("v0"), new Column("v"), new Column("dv"),
+                    new Column("a0"), new Column("a"), new Column("da"))) {
+                for (Map.Entry<String, Pair<Double, Double>> e : initialVoltages.entrySet()) {
+                    String busId = e.getKey();
+                    double initialV = e.getValue().getLeft();
+                    double initialAngle = e.getValue().getRight();
+                    double v = olfVoltages.get(busId).getLeft();
+                    double angle = olfVoltages.get(busId).getRight();
+                    tableFormatter.writeCell(busId)
+                            .writeCell(initialV)
+                            .writeCell(v)
+                            .writeCell(v - initialV)
+                            .writeCell(initialAngle)
+                            .writeCell(angle)
+                            .writeCell(angle - initialAngle);
+                }
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            writer.flush();
+            LOGGER.debug(writer.toString());
+        }
+    }
+
+    private void testIeee(Network network, String slackBusId) {
         Map<String, Pair<Double, Double>> initialVoltages = extractVoltages(network);
         LoadFlowParameters parameters = createParameters(slackBusId);
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isOk());
         Map<String, Pair<Double, Double>> olfVoltages = extractVoltages(network);
-        StringWriter writer = new StringWriter();
-        try (TableFormatter tableFormatter = new AsciiTableFormatter(writer, "Voltage diff", new TableFormatterConfig(),
-                     new Column("bus ID"), new Column("v0"), new Column("v"), new Column("dv"),
-                new Column("a0"), new Column("a"), new Column("da"))) {
-            for (Map.Entry<String, Pair<Double, Double>> e : initialVoltages.entrySet()) {
-                String busId = e.getKey();
-                double initialV = e.getValue().getLeft();
-                double initialAngle = e.getValue().getRight();
-                double v = olfVoltages.get(busId).getLeft();
-                double angle = olfVoltages.get(busId).getRight();
-//                assertEquals(initialV, v, epsV);
-//                assertEquals(initialAngle, angle, epsAngle);
-                tableFormatter.writeCell(busId)
-                        .writeCell(initialV)
-                        .writeCell(v)
-                        .writeCell(v - initialV)
-                        .writeCell(initialAngle)
-                        .writeCell(angle)
-                        .writeCell(angle - initialAngle);
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+
+        logDiff(initialVoltages, olfVoltages);
+
+        for (Map.Entry<String, Pair<Double, Double>> e : initialVoltages.entrySet()) {
+            String busId = e.getKey();
+            double initialV = e.getValue().getLeft();
+            double v = olfVoltages.get(busId).getLeft();
+            assertEquals(initialV, v, 10e-3, "Voltage magnitude difference for bus " + busId);
         }
-        writer.flush();
-        LOGGER.info(writer.toString());
     }
 
     @Test
     public void testIeee9() {
-        testIeee(IeeeCdfNetworkFactory.create9(), "VL1_0", 10e-2, 10e-4);
+        testIeee(IeeeCdfNetworkFactory.create9(), "VL1_0");
     }
 
     @Test
     @Ignore
     public void testIeee14() {
-        testIeee(IeeeCdfNetworkFactory.create14(), "VL1_0", 10e-4, 10e-4);
+        testIeee(IeeeCdfNetworkFactory.create14(), "VL1_0");
     }
 
     @Test
     @Ignore
     public void testIeee30() {
-        testIeee(IeeeCdfNetworkFactory.create30(), "VL1_0", 10e-2, 10e-4);
+        testIeee(IeeeCdfNetworkFactory.create30(), "VL1_0");
     }
 
     @Test
     @Ignore
     public void testIeee57() {
-        testIeee(IeeeCdfNetworkFactory.create57(), "VL1_0", 10e-4, 10e-4);
+        testIeee(IeeeCdfNetworkFactory.create57(), "VL1_0");
     }
 
     @Test
     @Ignore
     public void testIeee118() {
-        testIeee(IeeeCdfNetworkFactory.create118(), "VL69_0", 10e-4, 10e-4);
+        testIeee(IeeeCdfNetworkFactory.create118(), "VL69_0");
     }
 
     @Test
     @Ignore
     public void testIeee300() {
-        testIeee(IeeeCdfNetworkFactory.create300(), "VL1_0", 10e-2, 10e-4);
+        testIeee(IeeeCdfNetworkFactory.create300(), "VL1_0");
     }
 }
