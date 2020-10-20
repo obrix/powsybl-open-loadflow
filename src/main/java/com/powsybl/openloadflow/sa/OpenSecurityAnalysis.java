@@ -127,7 +127,8 @@ public class OpenSecurityAnalysis implements SecurityAnalysis {
         SecurityAnalysisResult result = runSimulations(largestNetwork, contingencyContexts, acParameters, lfParameters, lfParametersExt);
 
         stopwatch.stop();
-        LOGGER.info("Security analysis done in {} ms", stopwatch.elapsed(TimeUnit.MILLISECONDS));
+        long seconds = stopwatch.elapsed(TimeUnit.SECONDS);
+        LOGGER.info("Security analysis done in {} s (throughput: {} contingencies/s)", seconds, 1f * contingencies.size() / seconds);
 
         return result;
     }
@@ -249,46 +250,46 @@ public class OpenSecurityAnalysis implements SecurityAnalysis {
         List<LfContingency> contingencies = createContingencies(contingencyContexts, network);
 
         // run pre-contingency simulation
-        AcloadFlowEngine engine = new AcloadFlowEngine(network, acParameters);
-        AcLoadFlowResult preContingencyLoadFlowResult = engine.run();
-        boolean preContingencyComputationOk = preContingencyLoadFlowResult.getNewtonRaphsonStatus() == NewtonRaphsonStatus.CONVERGED;
-        List<LimitViolation> preContingencyLimitViolations = new ArrayList<>();
-        LimitViolationsResult preContingencyResult = new LimitViolationsResult(preContingencyComputationOk, preContingencyLimitViolations);
+        try (AcloadFlowEngine engine = new AcloadFlowEngine(network, acParameters)) {
+            AcLoadFlowResult preContingencyLoadFlowResult = engine.run();
+            boolean preContingencyComputationOk = preContingencyLoadFlowResult.getNewtonRaphsonStatus() == NewtonRaphsonStatus.CONVERGED;
+            List<LimitViolation> preContingencyLimitViolations = new ArrayList<>();
+            LimitViolationsResult preContingencyResult = new LimitViolationsResult(preContingencyComputationOk, preContingencyLimitViolations);
 
-        // only run post-contingency simulations if pre-contingency simulation is ok
-        List<PostContingencyResult> postContingencyResults = new ArrayList<>();
-        if (preContingencyComputationOk) {
-            detectViolations(network.getBranches().stream(), network.getBuses().stream(), preContingencyLimitViolations);
+            // only run post-contingency simulations if pre-contingency simulation is ok
+            List<PostContingencyResult> postContingencyResults = new ArrayList<>();
+            if (preContingencyComputationOk) {
+                detectViolations(network.getBranches().stream(), network.getBuses().stream(), preContingencyLimitViolations);
 
-            LOGGER.info("Save pre-contingency state");
+                LOGGER.info("Save pre-contingency state");
 
-            // save base state for later restoration after each contingency
-            Map<LfBus, BusState> busStates = getBusStates(network.getBuses());
-            for (LfBus bus : network.getBuses()) {
-                bus.setVoltageControlSwitchOffCount(0);
-            }
+                // save base state for later restoration after each contingency
+                Map<LfBus, BusState> busStates = getBusStates(network.getBuses());
+                for (LfBus bus : network.getBuses()) {
+                    bus.setVoltageControlSwitchOffCount(0);
+                }
 
-            // start a simulation for each of the contingency
-            Iterator<LfContingency> contingencyIt = contingencies.iterator();
-            while (contingencyIt.hasNext()) {
-                LfContingency lfContingency = contingencyIt.next();
+                // start a simulation for each of the contingency
+                Iterator<LfContingency> contingencyIt = contingencies.iterator();
+                while (contingencyIt.hasNext()) {
+                    LfContingency lfContingency = contingencyIt.next();
 
-                // FIXME: loads and generations lost with the contingency have to be removed from the slack distribution
-                distributedMismatch(network, lfContingency.getActivePowerLoss(), loadFlowParameters, openLoadFlowParameters);
+                    // FIXME: loads and generations lost with the contingency have to be removed from the slack distribution
+                    distributedMismatch(network, lfContingency.getActivePowerLoss(), loadFlowParameters, openLoadFlowParameters);
 
-                PostContingencyResult postContingencyResult = runPostContingencySimulation(network, engine, lfContingency);
-                postContingencyResults.add(postContingencyResult);
+                    PostContingencyResult postContingencyResult = runPostContingencySimulation(network, engine, lfContingency);
+                    postContingencyResults.add(postContingencyResult);
 
-                if (contingencyIt.hasNext()) {
-                    LOGGER.info("Restore pre-contingency state");
+                    if (contingencyIt.hasNext()) {
+                        LOGGER.info("Restore pre-contingency state");
 
-                    // restore base state
-                    restoreBusStates(busStates, engine);
+                        // restore base state
+                        restoreBusStates(busStates, engine);
+                    }
                 }
             }
+            return new SecurityAnalysisResult(preContingencyResult, postContingencyResults);
         }
-
-        return new SecurityAnalysisResult(preContingencyResult, postContingencyResults);
     }
 
     private void distributedMismatch(LfNetwork network, double mismatch, LoadFlowParameters loadFlowParameters, OpenLoadFlowParameters openLoadFlowParameters) {

@@ -19,7 +19,7 @@ import java.util.Objects;
 /**
  * @author Geoffroy Jamgotchian <geoffroy.jamgotchian at rte-france.com>
  */
-public class NewtonRaphson implements AutoCloseable, EquationSystemListener {
+public class NewtonRaphson {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NewtonRaphson.class);
 
@@ -35,16 +35,17 @@ public class NewtonRaphson implements AutoCloseable, EquationSystemListener {
 
     private int iteration = 0;
 
-    private JacobianMatrix j;
+    private final JacobianMatrixCache jacobianMatrixCache;
 
     public NewtonRaphson(LfNetwork network, MatrixFactory matrixFactory, AcLoadFlowObserver observer,
-                         EquationSystem equationSystem, NewtonRaphsonStoppingCriteria stoppingCriteria) {
+                         EquationSystem equationSystem, JacobianMatrixCache jacobianMatrixCache,
+                         NewtonRaphsonStoppingCriteria stoppingCriteria) {
         this.network = Objects.requireNonNull(network);
         this.matrixFactory = Objects.requireNonNull(matrixFactory);
         this.observer = Objects.requireNonNull(observer);
         this.equationSystem = Objects.requireNonNull(equationSystem);
+        this.jacobianMatrixCache = Objects.requireNonNull(jacobianMatrixCache);
         this.stoppingCriteria = Objects.requireNonNull(stoppingCriteria);
-        equationSystem.addListener(this);
     }
 
     private NewtonRaphsonStatus runIteration(double[] fx, double[] targets, double[] x) {
@@ -54,11 +55,7 @@ public class NewtonRaphson implements AutoCloseable, EquationSystemListener {
             // build jacobian
             observer.beforeJacobianBuild(iteration);
 
-            if (j == null) {
-                j = JacobianMatrix.create(equationSystem, matrixFactory);
-            } else {
-                j.update();
-            }
+            JacobianMatrix j = jacobianMatrixCache.get();
 
             observer.afterJacobianBuild(j.getMatrix(), equationSystem, iteration);
 
@@ -190,25 +187,5 @@ public class NewtonRaphson implements AutoCloseable, EquationSystemListener {
         equationSystem.updateEquations(x);
 
         observer.afterEquationsUpdate(equationSystem, iteration);
-    }
-
-    @Override
-    public void close() {
-        equationSystem.removeListener(this);
-        if (j != null) {
-            j.cleanLU();
-        }
-    }
-
-    @Override
-    public void equationListChanged(Equation equation, EquationEventType eventType) {
-        switch (eventType) {
-            case EQUATION_CREATED:
-            case EQUATION_REMOVED:
-            case EQUATION_ACTIVATED:
-            case EQUATION_DEACTIVATED:
-                j = null;
-                break;
-        }
     }
 }

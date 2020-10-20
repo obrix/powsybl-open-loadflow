@@ -45,8 +45,9 @@ class OperationalLimitsTest extends AbstractLoadFlowNetworkFactory {
         assertEquals(1, lfNetworks.size());
         LfNetwork lfNetwork = lfNetworks.get(0);
         AcLoadFlowParameters acParameters = OpenLoadFlowProvider.createAcParameters(network, new DenseMatrixFactory(), parameters, parametersExt, false);
-        AcloadFlowEngine engine = new AcloadFlowEngine(lfNetwork, acParameters);
-        engine.run();
+        try (AcloadFlowEngine engine = new AcloadFlowEngine(lfNetwork, acParameters)) {
+            engine.run();
+        }
         LfBranch branch1 = lfNetwork.getBranchById("NHV1_NHV2_1");
         assertTrue(branch1.getI1() < branch1.getPermanentLimit1());
         LfBranch branch2 = lfNetwork.getBranchById("NHV1_NHV2_2");
@@ -66,8 +67,9 @@ class OperationalLimitsTest extends AbstractLoadFlowNetworkFactory {
         assertEquals(1, lfNetworks.size());
         LfNetwork lfNetwork = lfNetworks.get(0);
         AcLoadFlowParameters acParameters = OpenLoadFlowProvider.createAcParameters(network, new DenseMatrixFactory(), parameters, parametersExt, false);
-        AcloadFlowEngine engine = new AcloadFlowEngine(lfNetwork, acParameters);
-        engine.run();
+        try (AcloadFlowEngine engine = new AcloadFlowEngine(lfNetwork, acParameters)) {
+            engine.run();
+        }
         LfBranch branch = lfNetwork.getBranchById("DL");
         assertEquals(361.588, branch.getI1(), 10E-3);
         assertEquals(100.0, branch.getPermanentLimit1(), 10E-3);
@@ -82,8 +84,9 @@ class OperationalLimitsTest extends AbstractLoadFlowNetworkFactory {
         assertEquals(1, lfNetworks.size());
         LfNetwork lfNetwork = lfNetworks.get(0);
         AcLoadFlowParameters acParameters = OpenLoadFlowProvider.createAcParameters(network, new DenseMatrixFactory(), parameters, parametersExt, false);
-        AcloadFlowEngine engine = new AcloadFlowEngine(lfNetwork, acParameters);
-        engine.run();
+        try (AcloadFlowEngine engine = new AcloadFlowEngine(lfNetwork, acParameters)) {
+            engine.run();
+        }
         LfBranch branch1 = lfNetwork.getBranchById("3WT_leg_1");
         assertEquals(6000.771, branch1.getI1(), 10E-3);
         assertTrue(Double.isNaN(branch1.getI2()));
