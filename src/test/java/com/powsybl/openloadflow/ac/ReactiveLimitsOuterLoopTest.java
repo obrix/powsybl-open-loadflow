@@ -23,9 +23,9 @@ class ReactiveLimitsOuterLoopTest {
     private ReactiveLimitsOuterLoop reactiveLimitsOuterLoop;
 
     public ReactiveLimitsOuterLoopTest() {
-        loadFlowTestToolsSvcReactive = new LoadFlowTestTools(new NetworkBuilder().addNetworkBus1GenBus2Svc().setBus2SvcRegulationMode(StaticVarCompensator.RegulationMode.REACTIVE_POWER).build());
+        loadFlowTestToolsSvcReactive = new LoadFlowTestTools(new NetworkBuilder().addNetworkWithGenOnBus1AndSvcOnBus2().setSvcRegulationModeOnBus2(StaticVarCompensator.RegulationMode.REACTIVE_POWER).build());
         lfBus2Reactive = loadFlowTestToolsSvcReactive.getLfNetwork().getBusById("vl2_0");
-        loadFlowTestToolsSvcVoltageWithSlope = new LoadFlowTestTools(new NetworkBuilder().addNetworkBus1GenBus2Svc().setBus2SvcVoltageAndSlope().build());
+        loadFlowTestToolsSvcVoltageWithSlope = new LoadFlowTestTools(new NetworkBuilder().addNetworkWithGenOnBus1AndSvcOnBus2().setSvcVoltageAndSlopeOnBus2().build());
         lfBus2VoltageWithSlope = loadFlowTestToolsSvcVoltageWithSlope.getLfNetwork().getBusById("vl2_0");
         reactiveLimitsOuterLoop = new ReactiveLimitsOuterLoop();
     }

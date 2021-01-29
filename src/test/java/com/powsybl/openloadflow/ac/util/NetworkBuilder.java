@@ -3,21 +3,24 @@ package com.powsybl.openloadflow.ac.util;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.extensions.VoltagePerReactivePowerControlAdder;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class NetworkBuilder {
     private Network network;
     private VoltageLevel vl1;
     private Bus bus1;
     private VoltageLevel vl2;
     private Bus bus2;
-    private Line bus1bus2line;
-    private Generator bus1gen;
-    private Load bus2ld;
-    private StaticVarCompensator bus2svc;
-    private Generator bus2gen;
-    private ShuntCompensator bus2sc;
-    private Line bus2openLine;
+    private Line lineBetweenBus1AndBus2;
+    private Generator genOnBus1;
+    private Load loadOnBus2;
+    private StaticVarCompensator svcOnBus2;
+    private List<StaticVarCompensator> additionnalSvcOnBus2 = new ArrayList<>();
+    private Generator genOnBus2;
+    private ShuntCompensator shuntCompensatorOnBus2;
 
-    public NetworkBuilder addNetworkBus1GenBus2Svc() {
+    public NetworkBuilder addNetworkWithGenOnBus1AndSvcOnBus2() {
         network = Network.create("svc", "test");
         Substation s1 = network.newSubstation()
                 .setId("s1")
@@ -33,7 +36,7 @@ public class NetworkBuilder {
         bus1 = vl1.getBusBreakerView().newBus()
                 .setId("bus1")
                 .add();
-        bus1gen = vl1.newGenerator()
+        genOnBus1 = vl1.newGenerator()
                 .setId("bus1gen")
                 .setConnectableBus(bus1.getId())
                 .setBus(bus1.getId())
@@ -51,7 +54,7 @@ public class NetworkBuilder {
         bus2 = vl2.getBusBreakerView().newBus()
                 .setId("bus2")
                 .add();
-        bus2svc = vl2.newStaticVarCompensator()
+        svcOnBus2 = vl2.newStaticVarCompensator()
                 .setId("bus2svc")
                 .setConnectableBus(bus2.getId())
                 .setBus(bus2.getId())
@@ -59,7 +62,7 @@ public class NetworkBuilder {
                 .setBmin(-0.008)
                 .setBmax(0.008)
                 .add();
-        bus1bus2line = network.newLine()
+        lineBetweenBus1AndBus2 = network.newLine()
                 .setId("bus1bus2line")
                 .setVoltageLevel1(vl1.getId())
                 .setBus1(bus1.getId())
@@ -75,8 +78,8 @@ public class NetworkBuilder {
         return this;
     }
 
-    public NetworkBuilder addBus2Load() {
-        bus2ld = vl2.newLoad()
+    public NetworkBuilder addLoadOnBus2() {
+        loadOnBus2 = vl2.newLoad()
                 .setId("bus2ld")
                 .setConnectableBus(bus2.getId())
                 .setBus(bus2.getId())
@@ -86,8 +89,8 @@ public class NetworkBuilder {
         return this;
     }
 
-    public NetworkBuilder setBus2SvcVoltageAndSlope() {
-        bus2svc.setVoltageSetpoint(385)
+    public NetworkBuilder setSvcVoltageAndSlopeOnBus2() {
+        svcOnBus2.setVoltageSetpoint(385)
                 .setRegulationMode(StaticVarCompensator.RegulationMode.VOLTAGE)
                 .newExtension(VoltagePerReactivePowerControlAdder.class)
                 .withSlope(0.01)
@@ -95,25 +98,43 @@ public class NetworkBuilder {
         return this;
     }
 
-    public NetworkBuilder setBus2SvcRegulationMode(StaticVarCompensator.RegulationMode regulationMode) {
+    public NetworkBuilder setSvcRegulationModeOnBus2(StaticVarCompensator.RegulationMode regulationMode) {
         switch (regulationMode) {
             case VOLTAGE:
-                bus2svc.setVoltageSetpoint(385)
+                svcOnBus2.setVoltageSetpoint(385)
                         .setRegulationMode(StaticVarCompensator.RegulationMode.VOLTAGE);
                 break;
             case REACTIVE_POWER:
-                bus2svc.setReactivePowerSetpoint(300)
+                svcOnBus2.setReactivePowerSetpoint(300)
                         .setRegulationMode(StaticVarCompensator.RegulationMode.REACTIVE_POWER);
                 break;
             case OFF:
-                bus2svc.setRegulationMode(StaticVarCompensator.RegulationMode.OFF);
+                svcOnBus2.setRegulationMode(StaticVarCompensator.RegulationMode.OFF);
                 break;
         }
         return this;
     }
 
-    public NetworkBuilder addBus2Gen() {
-        bus2gen = bus2.getVoltageLevel()
+    public NetworkBuilder addMoreSvcWithVoltageAndSlopeOnBus2(double slope) {
+        StaticVarCompensator svc = vl2.newStaticVarCompensator()
+                .setId("bus2svc2")
+                .setConnectableBus(bus2.getId())
+                .setBus(bus2.getId())
+                .setRegulationMode(StaticVarCompensator.RegulationMode.OFF)
+                .setBmin(-0.008)
+                .setBmax(0.008)
+                .add();
+        svc.setVoltageSetpoint(385)
+                .setRegulationMode(StaticVarCompensator.RegulationMode.VOLTAGE)
+                .newExtension(VoltagePerReactivePowerControlAdder.class)
+                .withSlope(slope)
+                .add();
+        additionnalSvcOnBus2.add(svc);
+        return this;
+    }
+
+    public NetworkBuilder addGenWithoutVoltageRegulatorOnBus2() {
+        genOnBus2 = bus2.getVoltageLevel()
                 .newGenerator()
                 .setId("bus2gen")
                 .setBus(bus2.getId())
@@ -128,18 +149,18 @@ public class NetworkBuilder {
         return this;
     }
 
-    public NetworkBuilder setBus2GenRegulationMode(boolean voltageRegulatorOn) {
+    public NetworkBuilder setGenRegulationModeOnBus2(boolean voltageRegulatorOn) {
         if (voltageRegulatorOn) {
-            bus2gen.setTargetV(385);
+            genOnBus2.setTargetV(385);
         } else {
-            bus2gen.setTargetQ(300);
+            genOnBus2.setTargetQ(300);
         }
-        bus2gen.setVoltageRegulatorOn(voltageRegulatorOn);
+        genOnBus2.setVoltageRegulatorOn(voltageRegulatorOn);
         return this;
     }
 
-    public NetworkBuilder addBus2Sc() {
-        bus2sc = bus2.getVoltageLevel().newShuntCompensator()
+    public NetworkBuilder addShuntCompensatorOnBus2() {
+        shuntCompensatorOnBus2 = bus2.getVoltageLevel().newShuntCompensator()
                 .setId("bus2sc")
                 .setBus(bus2.getId())
                 .setConnectableBus(bus2.getId())
@@ -158,7 +179,7 @@ public class NetworkBuilder {
      * @return
      */
     private NetworkBuilder addOpenLine(String bus) {
-        bus2openLine = network.newLine()
+        network.newLine()
                 .setId(bus + "openLine")
                 .setVoltageLevel1(vl1.getId())
                 .setBus1(bus.equals("bus1") ? bus1.getId() : null)
@@ -176,11 +197,11 @@ public class NetworkBuilder {
         return this;
     }
 
-    public NetworkBuilder addBus1OpenLine() {
+    public NetworkBuilder addOpenLineOnBus1() {
         return addOpenLine("bus1");
     }
 
-    public NetworkBuilder addBus2OpenLine() {
+    public NetworkBuilder addOpenLineOnBus2() {
         return addOpenLine("bus2");
     }
 
@@ -204,31 +225,27 @@ public class NetworkBuilder {
         return bus2;
     }
 
-    public Line getBus1bus2line() {
-        return bus1bus2line;
+    public Line getLineBetweenBus1AndBus2() {
+        return lineBetweenBus1AndBus2;
     }
 
-    public Generator getBus1gen() {
-        return bus1gen;
+    public Generator getGenOnBus1() {
+        return genOnBus1;
     }
 
-    public Load getBus2ld() {
-        return bus2ld;
+    public StaticVarCompensator getSvcOnBus2() {
+        return svcOnBus2;
     }
 
-    public StaticVarCompensator getBus2svc() {
-        return bus2svc;
+    public List<StaticVarCompensator> getAdditionnalSvcOnBus2() {
+        return additionnalSvcOnBus2;
     }
 
-    public Generator getBus2gen() {
-        return bus2gen;
+    public Generator getGenOnBus2() {
+        return genOnBus2;
     }
 
-    public ShuntCompensator getBus2sc() {
-        return bus2sc;
-    }
-
-    public Line getBus2openLine() {
-        return bus2openLine;
+    public ShuntCompensator getShuntCompensatorOnBus2() {
+        return shuntCompensatorOnBus2;
     }
 }

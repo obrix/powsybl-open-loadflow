@@ -11,9 +11,9 @@ class LfStaticVarCompensatorImplTest {
     private LfStaticVarCompensatorImpl lfStaticVarCompensatorVoltageSlope;
 
     public LfStaticVarCompensatorImplTest() {
-        LoadFlowTestTools loadFlowTestToolsSvcReactive = new LoadFlowTestTools(new NetworkBuilder().addNetworkBus1GenBus2Svc().setBus2SvcRegulationMode(StaticVarCompensator.RegulationMode.REACTIVE_POWER).build());
+        LoadFlowTestTools loadFlowTestToolsSvcReactive = new LoadFlowTestTools(new NetworkBuilder().addNetworkWithGenOnBus1AndSvcOnBus2().setSvcRegulationModeOnBus2(StaticVarCompensator.RegulationMode.REACTIVE_POWER).build());
         lfStaticVarCompensatorReactive = (LfStaticVarCompensatorImpl) loadFlowTestToolsSvcReactive.getLfNetwork().getBusById("vl2_0").getGenerators().get(0);
-        LoadFlowTestTools loadFlowTestToolsSvcSlope = new LoadFlowTestTools(new NetworkBuilder().addNetworkBus1GenBus2Svc().setBus2SvcVoltageAndSlope().build());
+        LoadFlowTestTools loadFlowTestToolsSvcSlope = new LoadFlowTestTools(new NetworkBuilder().addNetworkWithGenOnBus1AndSvcOnBus2().setSvcVoltageAndSlopeOnBus2().build());
         lfStaticVarCompensatorVoltageSlope = (LfStaticVarCompensatorImpl) loadFlowTestToolsSvcSlope.getLfNetwork().getBusById("vl2_0").getGenerators().get(0);
     }
 

@@ -20,7 +20,7 @@ class AcEquationSystemTest {
     private StaticVarCompensatorVoltageLambdaQEquationTerm staticVarCompensatorVoltageLambdaQEquationTerm;
 
     public AcEquationSystemTest() {
-        loadFlowTestToolsSvcVoltageWithSlope = new LoadFlowTestTools(new NetworkBuilder().addNetworkBus1GenBus2Svc().setBus2SvcVoltageAndSlope().addBus2Gen().build());
+        loadFlowTestToolsSvcVoltageWithSlope = new LoadFlowTestTools(new NetworkBuilder().addNetworkWithGenOnBus1AndSvcOnBus2().setSvcVoltageAndSlopeOnBus2().addGenWithoutVoltageRegulatorOnBus2().build());
         lfBus2VoltageWithSlope = loadFlowTestToolsSvcVoltageWithSlope.getLfNetwork().getBusById("vl2_0");
         lfBus1 = loadFlowTestToolsSvcVoltageWithSlope.getLfNetwork().getBusById("vl1_0");
         staticVarCompensatorVoltageLambdaQEquationTerm =
@@ -41,7 +41,7 @@ class AcEquationSystemTest {
                 lfStaticVarCompensators), "should return false as missing StaticVarCompensator in bus");
 
         // 3 - there is a generator with a voltage regulator
-        LoadFlowTestTools loadFlowTestToolsWithGeneratorVoltageRegulator = new LoadFlowTestTools(new NetworkBuilder().addNetworkBus1GenBus2Svc().setBus2SvcVoltageAndSlope().addBus2Gen().setBus2GenRegulationMode(true).build());
+        LoadFlowTestTools loadFlowTestToolsWithGeneratorVoltageRegulator = new LoadFlowTestTools(new NetworkBuilder().addNetworkWithGenOnBus1AndSvcOnBus2().setSvcVoltageAndSlopeOnBus2().addGenWithoutVoltageRegulatorOnBus2().setGenRegulationModeOnBus2(true).build());
         LfBus lfBus2WithGeneratorVoltageRegulator = loadFlowTestToolsWithGeneratorVoltageRegulator.getLfNetwork().getBusById("vl2_0");
         Assertions.assertFalse(AcEquationSystem.useBusPVLQ(lfBus2WithGeneratorVoltageRegulator,
                 new AcEquationSystemCreationParameters(false, false, false, true),
@@ -63,15 +63,15 @@ class AcEquationSystemTest {
 
         // 2 - one static var compensator without VoltagePerReactivePowerControl
         lfStaticVarCompensators = new ArrayList<>();
-        LoadFlowTestTools loadFlowTestTools = new LoadFlowTestTools(new NetworkBuilder().addNetworkBus1GenBus2Svc().setBus2SvcRegulationMode(StaticVarCompensator.RegulationMode.REACTIVE_POWER).build());
+        LoadFlowTestTools loadFlowTestTools = new LoadFlowTestTools(new NetworkBuilder().addNetworkWithGenOnBus1AndSvcOnBus2().setSvcRegulationModeOnBus2(StaticVarCompensator.RegulationMode.REACTIVE_POWER).build());
         LfBus lfBus2 = loadFlowTestTools.getLfNetwork().getBusById("vl2_0");
         AcEquationSystem.getStaticVarCompensatorsWithSlope(lfBus2, lfStaticVarCompensators);
         Assertions.assertEquals(0, lfStaticVarCompensators.size(), "should return no StaticVarCompensator as VoltagePerReactivePowerControl is missing ");
 
         // 3 - one static var compensator with VoltagePerReactivePowerControl and a zero slope
         NetworkBuilder networkBuilder = new NetworkBuilder();
-        networkBuilder.addNetworkBus1GenBus2Svc().setBus2SvcVoltageAndSlope();
-        networkBuilder.getBus2svc().getExtension(VoltagePerReactivePowerControl.class).setSlope(0);
+        networkBuilder.addNetworkWithGenOnBus1AndSvcOnBus2().setSvcVoltageAndSlopeOnBus2();
+        networkBuilder.getSvcOnBus2().getExtension(VoltagePerReactivePowerControl.class).setSlope(0);
         loadFlowTestTools = new LoadFlowTestTools(networkBuilder.build());
         lfBus2 = loadFlowTestTools.getLfNetwork().getBusById("vl2_0");
         AcEquationSystem.getStaticVarCompensatorsWithSlope(lfBus2, lfStaticVarCompensators);

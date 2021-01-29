@@ -19,7 +19,7 @@ class NetworkEquationSystemAcLoadFlowObserverTest {
     private ListAppender<ILoggingEvent> listAppender;
 
     public NetworkEquationSystemAcLoadFlowObserverTest() {
-        loadFlowTestTools = new LoadFlowTestTools(new NetworkBuilder().addNetworkBus1GenBus2Svc().setBus2SvcVoltageAndSlope().addBus2Load().addBus2Gen().addBus2Sc().addBus1OpenLine().addBus2OpenLine().build());
+        loadFlowTestTools = new LoadFlowTestTools(new NetworkBuilder().addNetworkWithGenOnBus1AndSvcOnBus2().setSvcVoltageAndSlopeOnBus2().addLoadOnBus2().addGenWithoutVoltageRegulatorOnBus2().addShuntCompensatorOnBus2().addOpenLineOnBus1().addOpenLineOnBus2().build());
     }
 
     @BeforeEach

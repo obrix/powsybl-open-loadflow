@@ -4,7 +4,6 @@ import com.powsybl.commons.PowsyblException;
 import com.powsybl.openloadflow.equations.*;
 import com.powsybl.openloadflow.network.LfBus;
 import com.powsybl.openloadflow.network.LfGenerator;
-import com.powsybl.openloadflow.network.PerUnit;
 import com.powsybl.openloadflow.network.impl.LfStaticVarCompensatorImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,14 +36,28 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
     private final double sumQgeneratorsWithoutVoltageRegulator;
 
     public StaticVarCompensatorVoltageLambdaQEquationTerm(List<LfStaticVarCompensatorImpl> lfStaticVarCompensators, LfBus bus, VariableSet variableSet, EquationSystem equationSystem) {
+        // checklist
+        if (lfStaticVarCompensators == null || lfStaticVarCompensators.isEmpty()) {
+            throw new PowsyblException("Bus PVLQ (" + bus.getId() + ") require at least one StaticVarCompensator !");
+        }
+        for (LfGenerator lfGenerator : bus.getGenerators()) {
+            if (lfGenerator instanceof LfStaticVarCompensatorImpl) {
+                LfStaticVarCompensatorImpl lfStaticVarCompensatorImpl = (LfStaticVarCompensatorImpl) lfGenerator;
+                if (!lfStaticVarCompensatorImpl.hasVoltageControl() || lfStaticVarCompensatorImpl.getVoltagePerReactivePowerControl() == null
+                        || lfStaticVarCompensatorImpl.getVoltagePerReactivePowerControl().getSlope() == 0) {
+                    throw new PowsyblException("Bus PVLQ (" + bus.getId() + ") contains an invalid StaticVarCompensator (" + lfStaticVarCompensatorImpl.getId() + ")");
+                }
+            } else {
+                if (lfGenerator.hasVoltageControl()) {
+                    throw new PowsyblException("Bus PVLQ (" + bus.getId() + ") contains a Generator (" + lfGenerator.getId() + ") with a voltage regulator !");
+                }
+            }
+        }
+
+        // here we go
         this.lfStaticVarCompensators = lfStaticVarCompensators;
         this.bus = bus;
         this.equationSystem = equationSystem;
-
-        if (lfStaticVarCompensators.size() > 1) {
-            throw new PowsyblException("Bus PVLQ (" + bus.getId() + ") not supported yet as it contains more than one staticVarCompensator");
-        }
-
         vVar = variableSet.getVariable(bus.getNum(), VariableType.BUS_V);
         phiVar = variableSet.getVariable(bus.getNum(), VariableType.BUS_PHI);
         variables = Arrays.asList(vVar, phiVar);
@@ -70,25 +83,35 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
     @Override
     public void update(double[] x) {
         Objects.requireNonNull(x);
-        LfStaticVarCompensatorImpl lfStaticVarCompensator = lfStaticVarCompensators.get(0);
-        double slope = lfStaticVarCompensator.getSlope();
+        double slopeStaticVarCompensators = computeSlopeStaticVarCompensators(lfStaticVarCompensators);
         Equation reactiveEquation = equationSystem.createEquation(bus.getNum(), EquationType.BUS_Q);
 
         EvalAndDerOnTermsFromEquationBUSQ evalAndDerOnTermsFromEquationBUSQ = evalAndDerOnTermsFromEquationBUSQ(x, reactiveEquation);
 
-        // given : QbusMinusShunts = Qsvcs - QloadsAndBatteries + Qgenerators
-        // then : Q(U, theta) = Qsvcs =  QbusMinusShunts + QloadsAndBatteries - Qgenerators
-        double qSvc = evalAndDerOnTermsFromEquationBUSQ.qBusMinusShunts + bus.getLoadTargetQ() - sumQgeneratorsWithoutVoltageRegulator;
+        // given : QbusMinusShunts = QstaticVarCompensators - QloadsAndBatteries + Qgenerators
+        // then : Q(U, theta) = QstaticVarCompensators =  QbusMinusShunts + QloadsAndBatteries - Qgenerators
+        double qStaticVarCompensators = evalAndDerOnTermsFromEquationBUSQ.qBusMinusShunts + bus.getLoadTargetQ() - sumQgeneratorsWithoutVoltageRegulator;
         // f(U, theta) = U + lambda * Q(U, theta)
-        targetV = x[vVar.getRow()] + slope * qSvc;
+        targetV = x[vVar.getRow()] + slopeStaticVarCompensators * qStaticVarCompensators;
         // dfdU = 1 + lambda dQdU
         // Q remains constant for loads, batteries and generators, then derivative of Q is zero for this items
-        dfdv = 1 + slope * evalAndDerOnTermsFromEquationBUSQ.dQdVbusMinusShunts;
+        dfdv = 1 + slopeStaticVarCompensators * evalAndDerOnTermsFromEquationBUSQ.dQdVbusMinusShunts;
         // dfdtheta = lambda * dQdtheta
-        dfdph = slope * evalAndDerOnTermsFromEquationBUSQ.dQdPHbusMinusShunts;
-        LOGGER.trace("x = {} ; evalQbus = {} ; targetV = {} ; evalQbus - bus.getLoadTargetQ() = {}",
-                x[vVar.getRow()] * bus.getNominalV(), evalAndDerOnTermsFromEquationBUSQ.qBusMinusShunts * PerUnit.SB, targetV * bus.getNominalV(),
-                (evalAndDerOnTermsFromEquationBUSQ.qBusMinusShunts - bus.getLoadTargetQ()) * PerUnit.SB);
+        dfdph = slopeStaticVarCompensators * evalAndDerOnTermsFromEquationBUSQ.dQdPHbusMinusShunts;
+    }
+
+    public double computeSlopeStaticVarCompensators(List<LfStaticVarCompensatorImpl> lfStaticVarCompensators) {
+        if (lfStaticVarCompensators == null || lfStaticVarCompensators.isEmpty()) {
+            return 0;
+        } else if (lfStaticVarCompensators.size() == 1) {
+            return lfStaticVarCompensators.get(0).getSlope();
+        } else {
+            double sumFrac = 0;
+            for (LfStaticVarCompensatorImpl lfStaticVarCompensator : lfStaticVarCompensators) {
+                sumFrac += 1 / lfStaticVarCompensator.getSlope();
+            }
+            return 1 / sumFrac;
+        }
     }
 
     public boolean hasToEvalAndDerTerm(EquationTerm equationTerm) {
@@ -141,14 +164,8 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
     }
 
     private double getSumQgeneratorsWithoutVoltageRegulator() {
-        double sumQgenerators = 0;
-        for (LfGenerator lfGenerator : bus.getGenerators()) {
-            if (!lfGenerator.hasVoltageControl()) {
-                LOGGER.trace("lfGenerator.getTargetQ() = {} ; lfGenerator.getCalculatedQ() = {}", lfGenerator.getTargetQ(), lfGenerator.getCalculatedQ());
-                sumQgenerators += lfGenerator.getTargetQ();
-            }
-        }
-        return sumQgenerators;
+        return bus.getGenerators().stream().filter(lfGenerator -> !(lfGenerator instanceof LfStaticVarCompensatorImpl) && !lfGenerator.hasVoltageControl())
+                .map(LfGenerator::getTargetQ).reduce(0d, (targetQ1, targetQ2) -> targetQ1 + targetQ2);
     }
 
     @Override
