@@ -108,9 +108,15 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
         } else {
             double sumFrac = 0;
             for (LfStaticVarCompensatorImpl lfStaticVarCompensator : lfStaticVarCompensators) {
-                sumFrac += 1 / lfStaticVarCompensator.getSlope();
+                if (lfStaticVarCompensator.getSlope() != 0) {
+                    sumFrac += 1 / lfStaticVarCompensator.getSlope();
+                }
             }
-            return 1 / sumFrac;
+            if (sumFrac != 0) {
+                return 1 / sumFrac;
+            } else {
+                return 0;
+            }
         }
     }
 
