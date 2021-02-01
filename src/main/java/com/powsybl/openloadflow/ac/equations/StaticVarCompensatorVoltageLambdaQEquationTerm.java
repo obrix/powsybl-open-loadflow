@@ -76,6 +76,7 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
     private static String getMessage(LfStaticVarCompensatorImpl lfStaticVarCompensatorImpl, LfBus lfBus, String message) {
         return MESSAGE_PREFIX + lfBus.getId() + ") contains an invalid StaticVarCompensator (" + lfStaticVarCompensatorImpl.getId() + message;
     }
+
     @Override
     public SubjectType getSubjectType() {
         return SubjectType.BUS;
