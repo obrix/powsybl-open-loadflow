@@ -52,16 +52,7 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
         }
         for (LfGenerator lfGenerator : lfBus.getGenerators()) {
             if (lfGenerator instanceof LfStaticVarCompensatorImpl) {
-                LfStaticVarCompensatorImpl lfStaticVarCompensatorImpl = (LfStaticVarCompensatorImpl) lfGenerator;
-                if (!lfStaticVarCompensatorImpl.hasVoltageControl()) {
-                    throw new PowsyblException(MESSAGE_PREFIX + lfBus.getId() + ") contains an invalid StaticVarCompensator (" + lfStaticVarCompensatorImpl.getId() + ") without Voltage Control !");
-                }
-                if (lfStaticVarCompensatorImpl.getVoltagePerReactivePowerControl() == null) {
-                    throw new PowsyblException(MESSAGE_PREFIX + lfBus.getId() + ") contains an invalid StaticVarCompensator (" + lfStaticVarCompensatorImpl.getId() + ") without VoltagePerReactivePowerControl extension !");
-                }
-                if (lfStaticVarCompensatorImpl.getVoltagePerReactivePowerControl().getSlope() == 0) {
-                    throw new PowsyblException(MESSAGE_PREFIX + lfBus.getId() + ") contains an invalid StaticVarCompensator (" + lfStaticVarCompensatorImpl.getId() + ") with a zero slope");
-                }
+                checkLfStaticVarCompensatorImpl((LfStaticVarCompensatorImpl) lfGenerator, lfBus);
             } else {
                 if (lfGenerator.hasVoltageControl()) {
                     throw new PowsyblException(MESSAGE_PREFIX + lfBus.getId() + ") cannot contains a Generator (" + lfGenerator.getId() + ") with a voltage regulator !");
@@ -70,6 +61,21 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
         }
     }
 
+    private static void checkLfStaticVarCompensatorImpl(LfStaticVarCompensatorImpl lfStaticVarCompensatorImpl, LfBus lfBus) {
+        if (!lfStaticVarCompensatorImpl.hasVoltageControl()) {
+            throw new PowsyblException(getMessage(lfStaticVarCompensatorImpl, lfBus, ") without Voltage Control !"));
+        }
+        if (lfStaticVarCompensatorImpl.getVoltagePerReactivePowerControl() == null) {
+            throw new PowsyblException(getMessage(lfStaticVarCompensatorImpl, lfBus, ") without VoltagePerReactivePowerControl extension !"));
+        }
+        if (lfStaticVarCompensatorImpl.getVoltagePerReactivePowerControl().getSlope() == 0) {
+            throw new PowsyblException(getMessage(lfStaticVarCompensatorImpl, lfBus, ") with a zero slope"));
+        }
+    }
+
+    private static String getMessage(LfStaticVarCompensatorImpl lfStaticVarCompensatorImpl, LfBus lfBus, String message) {
+        return MESSAGE_PREFIX + lfBus.getId() + ") contains an invalid StaticVarCompensator (" + lfStaticVarCompensatorImpl.getId() + message;
+    }
     @Override
     public SubjectType getSubjectType() {
         return SubjectType.BUS;
