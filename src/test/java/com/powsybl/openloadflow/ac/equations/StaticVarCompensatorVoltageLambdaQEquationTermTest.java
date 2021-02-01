@@ -2,6 +2,7 @@ package com.powsybl.openloadflow.ac.equations;
 
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.iidm.network.StaticVarCompensator;
+import com.powsybl.iidm.network.extensions.VoltagePerReactivePowerControl;
 import com.powsybl.openloadflow.ac.util.NetworkBuilder;
 import com.powsybl.openloadflow.equations.*;
 import com.powsybl.openloadflow.network.LfBus;
@@ -43,12 +44,35 @@ class StaticVarCompensatorVoltageLambdaQEquationTermTest {
     }
 
     @Test
-    void staticVarCompensatorVoltageLambdaQEquationTermTest() {
-        Assertions.assertThrows(PowsyblException.class, () -> new StaticVarCompensatorVoltageLambdaQEquationTerm(null, lfBus2SvcVoltageWithSlope, variableSet, equationSystem));
-        Assertions.assertThrows(PowsyblException.class, () -> new StaticVarCompensatorVoltageLambdaQEquationTerm(new ArrayList<LfStaticVarCompensatorImpl>(), lfBus2SvcVoltageWithSlope, variableSet, equationSystem));
-        Assertions.assertThrows(PowsyblException.class, () -> new StaticVarCompensatorVoltageLambdaQEquationTerm(lfStaticVarCompensators, lfBus1GenVoltage, variableSet, equationSystem));
+    void checklistTest() {
+        Assertions.assertThrows(PowsyblException.class, () -> StaticVarCompensatorVoltageLambdaQEquationTerm.checklist(null,
+                lfBus2SvcVoltageWithSlope), "StaticVarCompensator list should not be null");
+
+        ArrayList<LfStaticVarCompensatorImpl> emptyLfStaticVarCompensators = new ArrayList<LfStaticVarCompensatorImpl>();
+        Assertions.assertThrows(PowsyblException.class, () -> StaticVarCompensatorVoltageLambdaQEquationTerm.checklist(emptyLfStaticVarCompensators,
+                lfBus2SvcVoltageWithSlope), "StaticVarCompensator list should not be empty");
+
+        Assertions.assertThrows(PowsyblException.class, () -> StaticVarCompensatorVoltageLambdaQEquationTerm.checklist(lfStaticVarCompensators,
+                lfBus1GenVoltage), "bus cannot contain any generator with VoltageControl");
+
         lfStaticVarCompensators.get(0).getVoltagePerReactivePowerControl().setSlope(0);
-        Assertions.assertThrows(PowsyblException.class, () -> new StaticVarCompensatorVoltageLambdaQEquationTerm(lfStaticVarCompensators, lfBus2SvcVoltageWithSlope, variableSet, equationSystem));
+        Assertions.assertThrows(PowsyblException.class, () -> StaticVarCompensatorVoltageLambdaQEquationTerm.checklist(lfStaticVarCompensators,
+                lfBus2SvcVoltageWithSlope), "bus should not contain any slope with zero slope");
+
+        StaticVarCompensator staticVarCompensator = networkBuilder.getSvcOnBus2();
+        staticVarCompensator.setReactivePowerSetpoint(300);
+        staticVarCompensator.setRegulationMode(StaticVarCompensator.RegulationMode.REACTIVE_POWER);
+        lfBus2SvcVoltageWithSlope.getGenerators().clear();
+        lfBus2SvcVoltageWithSlope.getGenerators().add(LfStaticVarCompensatorImpl.create(staticVarCompensator, (AbstractLfBus) lfBus2SvcVoltageWithSlope));
+        Assertions.assertThrows(PowsyblException.class, () -> StaticVarCompensatorVoltageLambdaQEquationTerm.checklist(lfStaticVarCompensators,
+                lfBus2SvcVoltageWithSlope), "bus should not contain any slope with ReactivePowerControl");
+
+        staticVarCompensator.setRegulationMode(StaticVarCompensator.RegulationMode.VOLTAGE);
+        staticVarCompensator.removeExtension(VoltagePerReactivePowerControl.class);
+        lfBus2SvcVoltageWithSlope.getGenerators().clear();
+        lfBus2SvcVoltageWithSlope.getGenerators().add(LfStaticVarCompensatorImpl.create(staticVarCompensator, (AbstractLfBus) lfBus2SvcVoltageWithSlope));
+        Assertions.assertThrows(PowsyblException.class, () -> StaticVarCompensatorVoltageLambdaQEquationTerm.checklist(lfStaticVarCompensators,
+                lfBus2SvcVoltageWithSlope), "bus should not contain any slope without extension VoltagePerReactivePowerControl");
     }
 
     @Test
@@ -70,8 +94,12 @@ class StaticVarCompensatorVoltageLambdaQEquationTermTest {
     void computeSlopeStaticVarCompensatorsTest() {
         Assertions.assertEquals(0, staticVarCompensatorVoltageLambdaQEquationTerm.computeSlopeStaticVarCompensators(null));
         Assertions.assertEquals(0, staticVarCompensatorVoltageLambdaQEquationTerm.computeSlopeStaticVarCompensators(new ArrayList<LfStaticVarCompensatorImpl>()));
+        LfStaticVarCompensatorImpl lfStaticVarCompensator = lfStaticVarCompensators.get(0);
+        lfStaticVarCompensator.getVoltagePerReactivePowerControl().setSlope(0);
+        Assertions.assertEquals(0, staticVarCompensatorVoltageLambdaQEquationTerm.computeSlopeStaticVarCompensators(lfStaticVarCompensators));
+        lfStaticVarCompensator.getVoltagePerReactivePowerControl().setSlope(0.01);
         Assertions.assertEquals(0.0025, staticVarCompensatorVoltageLambdaQEquationTerm.computeSlopeStaticVarCompensators(lfStaticVarCompensators));
-        lfStaticVarCompensators.add(lfStaticVarCompensators.get(0));
+        lfStaticVarCompensators.add(lfStaticVarCompensator);
         Assertions.assertEquals(0.00125, staticVarCompensatorVoltageLambdaQEquationTerm.computeSlopeStaticVarCompensators(lfStaticVarCompensators));
         networkBuilder.addMoreSvcWithVoltageAndSlopeOnBus2(0.02);
         StaticVarCompensator bus2svc2 = networkBuilder.getAdditionnalSvcOnBus2().get(0);
