@@ -115,21 +115,23 @@ public class NetworkBuilder {
         return this;
     }
 
-    public NetworkBuilder addMoreSvcWithVoltageAndSlopeOnBus2(double slope) {
-        StaticVarCompensator svc = vl2.newStaticVarCompensator()
-                .setId("bus2svc2")
-                .setConnectableBus(bus2.getId())
-                .setBus(bus2.getId())
-                .setRegulationMode(StaticVarCompensator.RegulationMode.OFF)
-                .setBmin(-0.008)
-                .setBmax(0.008)
-                .add();
-        svc.setVoltageSetpoint(385)
-                .setRegulationMode(StaticVarCompensator.RegulationMode.VOLTAGE)
-                .newExtension(VoltagePerReactivePowerControlAdder.class)
-                .withSlope(slope)
-                .add();
-        additionnalSvcOnBus2.add(svc);
+    public NetworkBuilder addMoreSvcWithVoltageAndSlopeOnBus2(int additionnalSvcCount, double[] slopes, double[] bMins) {
+        for (int i = 0; i < additionnalSvcCount; i++) {
+            StaticVarCompensator svc = vl2.newStaticVarCompensator()
+                    .setId("bus2svc" + (i + 2))
+                    .setConnectableBus(bus2.getId())
+                    .setBus(bus2.getId())
+                    .setRegulationMode(StaticVarCompensator.RegulationMode.OFF)
+                    .setBmin(bMins[i])
+                    .setBmax(0.008)
+                    .add();
+            svc.setVoltageSetpoint(385)
+                    .setRegulationMode(StaticVarCompensator.RegulationMode.VOLTAGE)
+                    .newExtension(VoltagePerReactivePowerControlAdder.class)
+                    .withSlope(slopes[i])
+                    .add();
+            additionnalSvcOnBus2.add(svc);
+        }
         return this;
     }
 
