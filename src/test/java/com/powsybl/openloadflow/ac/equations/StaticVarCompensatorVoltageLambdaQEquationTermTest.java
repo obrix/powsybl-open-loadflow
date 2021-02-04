@@ -101,7 +101,7 @@ class StaticVarCompensatorVoltageLambdaQEquationTermTest {
         Assertions.assertEquals(0.0025, staticVarCompensatorVoltageLambdaQEquationTerm.computeSlopeStaticVarCompensators(lfStaticVarCompensators));
         lfStaticVarCompensators.add(lfStaticVarCompensator);
         Assertions.assertEquals(0.00125, staticVarCompensatorVoltageLambdaQEquationTerm.computeSlopeStaticVarCompensators(lfStaticVarCompensators));
-        networkBuilder.addMoreSvcWithVoltageAndSlopeOnBus2(1, new double[]{0.02}, new double[]{-0.008});
+        networkBuilder.addSvcWithVoltageAndSlopeOnBus2(1, new double[]{385}, new double[]{0.02}, new double[]{-0.008}, new double[]{0.008});
         StaticVarCompensator bus2svc2 = networkBuilder.getAdditionnalSvcOnBus2().get(0);
         lfStaticVarCompensators.add(LfStaticVarCompensatorImpl.create(bus2svc2, (AbstractLfBus) lfBus2SvcVoltageWithSlope));
         Assertions.assertEquals(0.001, staticVarCompensatorVoltageLambdaQEquationTerm.computeSlopeStaticVarCompensators(lfStaticVarCompensators));

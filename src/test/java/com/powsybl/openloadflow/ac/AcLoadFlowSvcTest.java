@@ -194,8 +194,8 @@ class AcLoadFlowSvcTest {
             Double qStaticVarCompensatorsPV = computeQStaticVarCompensators(networkPV);
             // assertions
             assertThat("Network " + networkDescription + " : with PV bus, V on bus2 should remains constant", networkPV.getBusView().getBus("vl2_0").getV(),
-                    new IsEqual(networkPV.getStaticVarCompensator("bus2svc").getVoltageSetpoint()));
-            assertThat("Network " + networkDescription + " : with PVLQ bus, voltageSetpoint should be equals to 'V on bus2 + slopeSVC * QstaticVarCompensators'", networkPVLQ.getStaticVarCompensator("bus2svc").getVoltageSetpoint(),
+                    new IsEqual(networkPV.getStaticVarCompensator("bus2svc2").getVoltageSetpoint()));
+            assertThat("Network " + networkDescription + " : with PVLQ bus, voltageSetpoint should be equals to 'V on bus2 + slopeSVC * QstaticVarCompensators'", networkPVLQ.getStaticVarCompensator("bus2svc2").getVoltageSetpoint(),
                     new LoadFlowAssert.EqualsTo(networkPVLQ.getBusView().getBus("vl2_0").getV() +
                             slopeStaticVarCompensators * (-qStaticVarCompensatorsPVLQ), DELTA_V));
             assertThat("Network " + networkDescription + " : Qsvc should be greater with bus PVLQ than PV", -qStaticVarCompensatorsPVLQ,
@@ -205,16 +205,16 @@ class AcLoadFlowSvcTest {
         }
     }
 
-    private void shouldRunLoadFlowWithBusPVlq(int additionnalSvcCount, double[] slopes, double[] bMins) {
+    private void shouldRunLoadFlowWithBusPVlq(int additionnalSvcCount, double[] voltageSetpoints, double[] slopes, double[] bMins, double[] bMaxs) {
         this.parametersExt.getAdditionalObservers().add(new LfNetworkAndEquationSystemCreationAcLoadFlowObserver());
 
         // 1 - build loadflow results
         LoadFlowRunResults<NetworkDescription, RunningParameters> loadFlowRunResults = new LoadFlowRunResults<>();
-        this.runLoadFlowAndStoreReports(() -> new NetworkBuilder().addNetworkWithGenOnBus1AndSvcOnBus2().setSvcVoltageAndSlopeOnBus2().addMoreSvcWithVoltageAndSlopeOnBus2(additionnalSvcCount, slopes, bMins).build(), NetworkDescription.BUS1_GEN_BUS2_SVC, loadFlowRunResults);
-        this.runLoadFlowAndStoreReports(() -> new NetworkBuilder().addNetworkWithGenOnBus1AndSvcOnBus2().setSvcVoltageAndSlopeOnBus2().addMoreSvcWithVoltageAndSlopeOnBus2(additionnalSvcCount, slopes, bMins).addLoadOnBus2().build(), NetworkDescription.BUS1_GEN_BUS2_SVC_LOAD, loadFlowRunResults);
-        this.runLoadFlowAndStoreReports(() -> new NetworkBuilder().addNetworkWithGenOnBus1AndSvcOnBus2().setSvcVoltageAndSlopeOnBus2().addMoreSvcWithVoltageAndSlopeOnBus2(additionnalSvcCount, slopes, bMins).addLoadOnBus2().addGenWithoutVoltageRegulatorOnBus2().build(), NetworkDescription.BUS1_GEN_BUS2_SVC_LOAD_GEN, loadFlowRunResults);
-        this.runLoadFlowAndStoreReports(() -> new NetworkBuilder().addNetworkWithGenOnBus1AndSvcOnBus2().setSvcVoltageAndSlopeOnBus2().addMoreSvcWithVoltageAndSlopeOnBus2(additionnalSvcCount, slopes, bMins).addLoadOnBus2().addGenWithoutVoltageRegulatorOnBus2().addShuntCompensatorOnBus2().build(), NetworkDescription.BUS1_GEN_BUS2_SVC_LOAD_GEN_SC, loadFlowRunResults);
-        this.runLoadFlowAndStoreReports(() -> new NetworkBuilder().addNetworkWithGenOnBus1AndSvcOnBus2().setSvcVoltageAndSlopeOnBus2().addMoreSvcWithVoltageAndSlopeOnBus2(additionnalSvcCount, slopes, bMins).addLoadOnBus2().addGenWithoutVoltageRegulatorOnBus2().addShuntCompensatorOnBus2().addOpenLineOnBus1().addOpenLineOnBus2().build(), NetworkDescription.BUS1_GEN_OLINE_BUS2_SVC_LOAD_GEN_SC_OLINE, loadFlowRunResults);
+        this.runLoadFlowAndStoreReports(() -> new NetworkBuilder().addNetworkWithGenOnBus1AndEmptyBus2().addSvcWithVoltageAndSlopeOnBus2(additionnalSvcCount, voltageSetpoints, slopes, bMins, bMaxs).build(), NetworkDescription.BUS1_GEN_BUS2_SVC, loadFlowRunResults);
+        this.runLoadFlowAndStoreReports(() -> new NetworkBuilder().addNetworkWithGenOnBus1AndEmptyBus2().addSvcWithVoltageAndSlopeOnBus2(additionnalSvcCount, voltageSetpoints, slopes, bMins, bMaxs).addLoadOnBus2().build(), NetworkDescription.BUS1_GEN_BUS2_SVC_LOAD, loadFlowRunResults);
+        this.runLoadFlowAndStoreReports(() -> new NetworkBuilder().addNetworkWithGenOnBus1AndEmptyBus2().addSvcWithVoltageAndSlopeOnBus2(additionnalSvcCount, voltageSetpoints, slopes, bMins, bMaxs).addLoadOnBus2().addGenWithoutVoltageRegulatorOnBus2().build(), NetworkDescription.BUS1_GEN_BUS2_SVC_LOAD_GEN, loadFlowRunResults);
+        this.runLoadFlowAndStoreReports(() -> new NetworkBuilder().addNetworkWithGenOnBus1AndEmptyBus2().addSvcWithVoltageAndSlopeOnBus2(additionnalSvcCount, voltageSetpoints, slopes, bMins, bMaxs).addLoadOnBus2().addGenWithoutVoltageRegulatorOnBus2().addShuntCompensatorOnBus2().build(), NetworkDescription.BUS1_GEN_BUS2_SVC_LOAD_GEN_SC, loadFlowRunResults);
+        this.runLoadFlowAndStoreReports(() -> new NetworkBuilder().addNetworkWithGenOnBus1AndEmptyBus2().addSvcWithVoltageAndSlopeOnBus2(additionnalSvcCount, voltageSetpoints, slopes, bMins, bMaxs).addLoadOnBus2().addGenWithoutVoltageRegulatorOnBus2().addShuntCompensatorOnBus2().addOpenLineOnBus1().addOpenLineOnBus2().build(), NetworkDescription.BUS1_GEN_OLINE_BUS2_SVC_LOAD_GEN_SC_OLINE, loadFlowRunResults);
 
         // 2 - display results
         loadFlowRunResults.displayAll();
@@ -229,13 +229,18 @@ class AcLoadFlowSvcTest {
 
     @Test
     void shouldRunLoadFlowWithBusPVlqAndOneSVC() {
-        shouldRunLoadFlowWithBusPVlq(0, new double[]{}, new double[]{});
+        shouldRunLoadFlowWithBusPVlq(1, new double[]{385}, new double[]{0.01}, new double[]{-0.008}, new double[]{0.008});
     }
 
     @Test
     void shouldRunLoadFlowWithBusPVlqAndTwoSVC() {
-        shouldRunLoadFlowWithBusPVlq(1, new double[]{0.02}, new double[]{-0.008});
+        shouldRunLoadFlowWithBusPVlq(2, new double[]{385, 385}, new double[]{0.01, 0.02}, new double[]{-0.008, -0.008}, new double[]{0.008, 0.008});
     }
+
+//    @Test
+//    void shouldRunLoadFlowWithBusPVlqAndSVCWithExceededLimit() {
+//        shouldRunLoadFlowWithBusPVlq(3, new double[]{385, 385, 385}, new double[]{0.01, 0.015, 0.02}, new double[]{-0.0001, -0.000075, -0.00005}, new double[]{0.0001, 0.000075, 0.00005});
+//    }
 
     @Test
     void shouldSwitchPvlqToPq() {
@@ -261,10 +266,9 @@ class AcLoadFlowSvcTest {
 
         // network and parameters setup
         NetworkBuilder networkBuilder = new NetworkBuilder();
-        Network network = networkBuilder.addNetworkWithGenOnBus1AndSvcOnBus2().setSvcVoltageAndSlopeOnBus2().addLoadOnBus2().build();
-        networkBuilder.getSvcOnBus2().setBmin(-0.001);
+        Network network = networkBuilder.addNetworkWithGenOnBus1AndEmptyBus2().addSvcWithVoltageAndSlopeOnBus2(1, new double[]{385}, new double[]{0.01}, new double[]{-0.001}, new double[]{0.001}).addLoadOnBus2().build();
         parametersExt.setUseBusPVLQ(true);
-        Double slope = networkBuilder.getSvcOnBus2().getExtension(VoltagePerReactivePowerControl.class).getSlope();
+        Double slope = networkBuilder.getAdditionnalSvcOnBus2().get(0).getExtension(VoltagePerReactivePowerControl.class).getSlope();
 
         // assertions
         assertTrue(loadFlowRunner.run(network, parameters).isOk());
