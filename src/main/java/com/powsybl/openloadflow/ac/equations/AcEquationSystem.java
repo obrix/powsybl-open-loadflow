@@ -96,7 +96,7 @@ public final class AcEquationSystem {
         return false;
     }
 
-    public static void getStaticVarCompensatorsWithSlope(LfBus bus, List<LfStaticVarCompensatorImpl> staticVarCompensatorsWithSlope) {
+    static void getStaticVarCompensatorsWithSlope(LfBus bus, List<LfStaticVarCompensatorImpl> staticVarCompensatorsWithSlope) {
         bus.getGenerators().stream().filter(lfGenerator -> lfGenerator instanceof LfStaticVarCompensatorImpl)
                 .map(LfStaticVarCompensatorImpl.class::cast)
                 .filter(lfStaticVarCompensatorImpl -> {

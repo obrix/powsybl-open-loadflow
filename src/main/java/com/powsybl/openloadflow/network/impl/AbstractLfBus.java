@@ -9,6 +9,8 @@ package com.powsybl.openloadflow.network.impl;
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.extensions.LoadDetail;
+import com.powsybl.openloadflow.ac.equations.AcEquationSystem;
+import com.powsybl.openloadflow.ac.equations.AcEquationSystemCreationParameters;
 import com.powsybl.openloadflow.network.*;
 import net.jafama.FastMath;
 import org.slf4j.Logger;
@@ -368,7 +370,7 @@ public abstract class AbstractLfBus implements LfBus {
     private double getLimitQ(ToDoubleFunction<LfGenerator> limitQ) {
         return generators.stream()
                 .mapToDouble(generator -> generator.hasVoltageControl() ? limitQ.applyAsDouble(generator)
-                                                                        : generator.getTargetQ())
+                        : generator.getTargetQ())
                 .sum();
     }
 
@@ -437,28 +439,111 @@ public abstract class AbstractLfBus implements LfBus {
         branches.add(Objects.requireNonNull(branch));
     }
 
-    private double dispatchQ(List<LfGenerator> generatorsThatControlVoltage, boolean reactiveLimits, double qToDispatch) {
-        double residueQ = 0;
-        Iterator<LfGenerator> itG = generatorsThatControlVoltage.iterator();
-        while (itG.hasNext()) {
-            LfGenerator generator = itG.next();
-            double calculatedQ = qToDispatch / generatorsThatControlVoltage.size();
-            if (reactiveLimits && calculatedQ < generator.getMinQ()) {
-                generator.setCalculatedQ(generator.getCalculatedQ() + generator.getMinQ());
-                residueQ += calculatedQ - generator.getMinQ();
-                itG.remove();
-            } else if (reactiveLimits && calculatedQ > generator.getMaxQ()) {
-                generator.setCalculatedQ(generator.getCalculatedQ() + generator.getMaxQ());
-                residueQ += calculatedQ - generator.getMaxQ();
-                itG.remove();
-            } else {
-                generator.setCalculatedQ(generator.getCalculatedQ() + calculatedQ);
-            }
+    private void dispatchQ(List<LfGenerator> generatorsThatControlVoltage, boolean reactiveLimits, double qToDispatch) {
+        AcEquationSystemCreationParameters acEquationSystemCreationParameters = new AcEquationSystemCreationParameters(false, false, false, true);
+        if (AcEquationSystem.useBusPVLQ(this, acEquationSystemCreationParameters, new ArrayList<>())) {
+            dispatchQAccordingToSvcSlope(generatorsThatControlVoltage.stream().map(LfStaticVarCompensatorImpl.class::cast).collect(Collectors.toList()), reactiveLimits, qToDispatch);
+        } else {
+            dispatchQUniform(generatorsThatControlVoltage, reactiveLimits, qToDispatch);
         }
-        return residueQ;
     }
 
-    private void updateGeneratorsState(double generationQ, boolean reactiveLimits) {
+    private void dispatchQAccordingToSvcSlope(List<LfStaticVarCompensatorImpl> lfStaticVarCompensators, boolean reactiveLimits, double qToDispatch) {
+        if (!lfStaticVarCompensators.isEmpty() && qToDispatch != 0) {
+            double sumSlope = lfStaticVarCompensators.stream().mapToDouble(LfStaticVarCompensatorImpl::getSlope).sum();
+            if (!reactiveLimits) {
+                dispatchQWithoutReactiveLimit(lfStaticVarCompensators, qToDispatch, sumSlope);
+            } else {
+                // if no more generator and remaining Q to dispatch -> ReactiveLimitsOuterLoop should switch bus from PVLQ to PQ to prevent this
+                StaticVarCompensatorWithMostExceededLimit staticVarCompensatorWithMostExceededLimit = getStaticVarCompensatorWithMostBrokenLimit(lfStaticVarCompensators, qToDispatch, sumSlope);
+                if (staticVarCompensatorWithMostExceededLimit == null) {
+                    dispatchQWithoutReactiveLimit(lfStaticVarCompensators, qToDispatch, sumSlope);
+                } else {
+                    double qToDispatchInLimits = (staticVarCompensatorWithMostExceededLimit.availableQtoDispatch * sumSlope) / staticVarCompensatorWithMostExceededLimit.lfStaticVarCompensator.getSlope();
+                    staticVarCompensatorWithMostExceededLimit.lfStaticVarCompensator.setCalculatedQ(staticVarCompensatorWithMostExceededLimit.brokenLimit);
+                    lfStaticVarCompensators.remove(staticVarCompensatorWithMostExceededLimit.lfStaticVarCompensator);
+                    for (LfStaticVarCompensatorImpl lfStaticVarCompensator : lfStaticVarCompensators) {
+                        lfStaticVarCompensator.setCalculatedQ(lfStaticVarCompensator.getCalculatedQ() + computeQsvc(lfStaticVarCompensator.getSlope(), qToDispatchInLimits, sumSlope));
+                    }
+                    dispatchQAccordingToSvcSlope(lfStaticVarCompensators, reactiveLimits, qToDispatch - qToDispatchInLimits);
+                }
+            }
+        }
+    }
+
+    private void dispatchQWithoutReactiveLimit(List<LfStaticVarCompensatorImpl> lfStaticVarCompensators, double qToDispatch, double sumSlope) {
+        for (LfStaticVarCompensatorImpl lfStaticVarCompensator : lfStaticVarCompensators) {
+            double qToDispatchSvc = computeQsvc(lfStaticVarCompensator.getSlope(), qToDispatch, sumSlope);
+            lfStaticVarCompensator.setCalculatedQ(lfStaticVarCompensator.getCalculatedQ() + qToDispatchSvc);
+        }
+    }
+
+    private class StaticVarCompensatorWithMostExceededLimit {
+        private LfStaticVarCompensatorImpl lfStaticVarCompensator;
+        private double availableQtoDispatch;
+        private double brokenLimit;
+
+        public StaticVarCompensatorWithMostExceededLimit(LfStaticVarCompensatorImpl lfStaticVarCompensator, double availableQtoDispatch, double brokenLimit) {
+            this.lfStaticVarCompensator = lfStaticVarCompensator;
+            this.availableQtoDispatch = availableQtoDispatch;
+            this.brokenLimit = brokenLimit;
+        }
+    }
+
+    private StaticVarCompensatorWithMostExceededLimit getStaticVarCompensatorWithMostBrokenLimit(List<LfStaticVarCompensatorImpl> lfStaticVarCompensators,
+                                                                                                 double qToDispatch, double sumSlope) {
+        double maximumBrokenLimitRating = 0;
+        StaticVarCompensatorWithMostExceededLimit staticVarCompensatorWithMostExceededLimit = null;
+        for (LfStaticVarCompensatorImpl lfStaticVarCompensator : lfStaticVarCompensators) {
+            double qSvci = computeQsvc(lfStaticVarCompensator.getSlope(), qToDispatch, sumSlope) + lfStaticVarCompensator.getCalculatedQ();
+            Double lastBrokenLimitRating = null;
+            Double brokenLimit = null;
+            Double minQ = lfStaticVarCompensator.getMinQ();
+            Double maxQ = lfStaticVarCompensator.getMaxQ();
+            if (qSvci < minQ) {
+                lastBrokenLimitRating = computeQsvc(lfStaticVarCompensator.getSlope(), Math.abs(qSvci - minQ), sumSlope);
+                brokenLimit = minQ;
+            }
+            if (qSvci > maxQ) {
+                lastBrokenLimitRating = computeQsvc(lfStaticVarCompensator.getSlope(), Math.abs(qSvci - maxQ), sumSlope);
+                brokenLimit = maxQ;
+            }
+            if (lastBrokenLimitRating != null && lastBrokenLimitRating > maximumBrokenLimitRating) {
+                maximumBrokenLimitRating = lastBrokenLimitRating;
+                staticVarCompensatorWithMostExceededLimit = new StaticVarCompensatorWithMostExceededLimit(lfStaticVarCompensator,
+                        brokenLimit - lfStaticVarCompensator.getCalculatedQ(), brokenLimit);
+            }
+        }
+        return staticVarCompensatorWithMostExceededLimit;
+    }
+
+    private double computeQsvc(double slopeSvc, double qStaticVarCompensators, double sumSlope) {
+        return (slopeSvc * qStaticVarCompensators) / sumSlope;
+    }
+
+    private void dispatchQUniform(List<LfGenerator> generatorsThatControlVoltage, boolean reactiveLimits, double qToDispatch) {
+        double qToDispatchLeft = qToDispatch;
+        while (!generatorsThatControlVoltage.isEmpty() && Math.abs(qToDispatchLeft) > Q_DISPATCH_EPSILON) {
+            double qToDispatchByGenerator = qToDispatchLeft / generatorsThatControlVoltage.size();
+            for (int i = generatorsThatControlVoltage.size() - 1; i >= 0; i--) {
+                LfGenerator generator = generatorsThatControlVoltage.get(i);
+                if (reactiveLimits && generator.getCalculatedQ() + qToDispatchByGenerator < generator.getMinQ()) {
+                    qToDispatchLeft -= generator.getMinQ() - generator.getCalculatedQ();
+                    generator.setCalculatedQ(generator.getMinQ());
+                    generatorsThatControlVoltage.remove(i);
+                } else if (reactiveLimits && generator.getCalculatedQ() + qToDispatchByGenerator > generator.getMaxQ()) {
+                    qToDispatchLeft -= generator.getMaxQ() - generator.getCalculatedQ();
+                    generator.setCalculatedQ(generator.getMaxQ());
+                    generatorsThatControlVoltage.remove(i);
+                } else {
+                    generator.setCalculatedQ(generator.getCalculatedQ() + qToDispatchByGenerator);
+                    qToDispatchLeft -= qToDispatchByGenerator;
+                }
+            }
+        }
+    }
+
+    void updateGeneratorsState(double generationQ, boolean reactiveLimits) {
         double qToDispatch = generationQ / PerUnit.SB;
         List<LfGenerator> generatorsThatControlVoltage = new LinkedList<>();
         for (LfGenerator generator : generators) {
@@ -472,8 +557,8 @@ public abstract class AbstractLfBus implements LfBus {
         for (LfGenerator generator : generatorsThatControlVoltage) {
             generator.setCalculatedQ(0);
         }
-        while (!generatorsThatControlVoltage.isEmpty() && Math.abs(qToDispatch) > Q_DISPATCH_EPSILON) {
-            qToDispatch = dispatchQ(generatorsThatControlVoltage, reactiveLimits, qToDispatch);
+        if (!generatorsThatControlVoltage.isEmpty()) {
+            dispatchQ(generatorsThatControlVoltage, reactiveLimits, qToDispatch);
         }
     }
 

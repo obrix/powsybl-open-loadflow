@@ -23,6 +23,8 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
 
     private final List<Variable> variables;
 
+    private double v;
+
     private double targetV;
 
     private double dfdv;
@@ -46,7 +48,7 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
         sumQgeneratorsWithoutVoltageRegulator = getSumQgeneratorsWithoutVoltageRegulator();
     }
 
-    public static void checklist(List<LfStaticVarCompensatorImpl> lfStaticVarCompensators, LfBus lfBus) throws PowsyblException {
+    static void checklist(List<LfStaticVarCompensatorImpl> lfStaticVarCompensators, LfBus lfBus) throws PowsyblException {
         if (lfStaticVarCompensators == null || lfStaticVarCompensators.isEmpty()) {
             throw new PowsyblException(MESSAGE_PREFIX + lfBus.getId() + ") require at least one StaticVarCompensator !");
         }
@@ -95,6 +97,7 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
     @Override
     public void update(double[] x) {
         Objects.requireNonNull(x);
+        v = x[vVar.getRow()];
         double slopeStaticVarCompensators = computeSlopeStaticVarCompensators(lfStaticVarCompensators);
         Equation reactiveEquation = equationSystem.createEquation(lfBus.getNum(), EquationType.BUS_Q);
 
@@ -104,15 +107,15 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
         // then : Q(U, theta) = QstaticVarCompensators =  QbusMinusShunts + QloadsAndBatteries - Qgenerators
         double qStaticVarCompensators = evalAndDerOnTermsFromEquationBUSQ.qBusMinusShunts + lfBus.getLoadTargetQ() - sumQgeneratorsWithoutVoltageRegulator;
         // f(U, theta) = U + lambda * Q(U, theta)
-        targetV = x[vVar.getRow()] + slopeStaticVarCompensators * qStaticVarCompensators;
-        // dfdU = 1 + lambda dQdU
+        targetV = v + slopeStaticVarCompensators * qStaticVarCompensators;
+        // dfdU = 1 + lambda * dQdU
         // Q remains constant for loads, batteries and generators, then derivative of Q is zero for this items
         dfdv = 1 + slopeStaticVarCompensators * evalAndDerOnTermsFromEquationBUSQ.dQdVbusMinusShunts;
         // dfdtheta = lambda * dQdtheta
         dfdph = slopeStaticVarCompensators * evalAndDerOnTermsFromEquationBUSQ.dQdPHbusMinusShunts;
     }
 
-    public double computeSlopeStaticVarCompensators(List<LfStaticVarCompensatorImpl> lfStaticVarCompensators) {
+    double computeSlopeStaticVarCompensators(List<LfStaticVarCompensatorImpl> lfStaticVarCompensators) {
         if (lfStaticVarCompensators == null || lfStaticVarCompensators.isEmpty()) {
             return 0;
         } else if (lfStaticVarCompensators.size() == 1) {
@@ -132,7 +135,7 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
         }
     }
 
-    public boolean hasToEvalAndDerTerm(EquationTerm equationTerm) {
+    boolean hasToEvalAndDerTerm(EquationTerm equationTerm) {
         return equationTerm.isActive() &&
                 (equationTerm instanceof ClosedBranchSide1ReactiveFlowEquationTerm
                         || equationTerm instanceof ClosedBranchSide2ReactiveFlowEquationTerm
@@ -141,7 +144,7 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
                         || equationTerm instanceof ShuntCompensatorReactiveFlowEquationTerm);
     }
 
-    public boolean hasPhiVar(EquationTerm equationTerm) {
+    boolean hasPhiVar(EquationTerm equationTerm) {
         return equationTerm instanceof ClosedBranchSide1ReactiveFlowEquationTerm
                 || equationTerm instanceof ClosedBranchSide2ReactiveFlowEquationTerm;
     }
@@ -183,7 +186,7 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
 
     private double getSumQgeneratorsWithoutVoltageRegulator() {
         return lfBus.getGenerators().stream().filter(lfGenerator -> !(lfGenerator instanceof LfStaticVarCompensatorImpl) && !lfGenerator.hasVoltageControl())
-                .map(LfGenerator::getTargetQ).reduce(0d, (targetQ1, targetQ2) -> targetQ1 + targetQ2);
+                .mapToDouble(LfGenerator::getTargetQ).sum();
     }
 
     @Override

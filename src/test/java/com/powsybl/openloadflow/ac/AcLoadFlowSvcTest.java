@@ -25,6 +25,7 @@ import com.powsybl.openloadflow.network.MostMeshedSlackBusSelector;
 import com.powsybl.openloadflow.util.LoadFlowAssert;
 import com.powsybl.openloadflow.util.LoadFlowRunResults;
 import org.hamcrest.core.IsEqual;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -189,15 +190,15 @@ class AcLoadFlowSvcTest {
             Map<RunningParameters, Network> networkResultByRunningParameters = networkResultByRunningParametersAndNetworkDescription.get(networkDescription);
             Network networkPV = networkResultByRunningParameters.get(RunningParameters.USE_BUS_PV);
             Network networkPVLQ = networkResultByRunningParameters.get(RunningParameters.USE_BUS_PVLQ);
-            Double slopeStaticVarCompensators = computeSlopeStaticVarCompensators(networkPVLQ);
+            // PLEASE NOTE : LfStaticVarCompensatorImpl.updateState reverse sign of calculatedQ before setting terminal
             Double qStaticVarCompensatorsPVLQ = computeQStaticVarCompensators(networkPVLQ);
             Double qStaticVarCompensatorsPV = computeQStaticVarCompensators(networkPV);
+            double slopeTimesQ = computeSlopeStaticVarCompensators(networkPVLQ) * -qStaticVarCompensatorsPVLQ;
             // assertions
             assertThat("Network " + networkDescription + " : with PV bus, V on bus2 should remains constant", networkPV.getBusView().getBus("vl2_0").getV(),
                     new IsEqual(networkPV.getStaticVarCompensator("bus2svc2").getVoltageSetpoint()));
             assertThat("Network " + networkDescription + " : with PVLQ bus, voltageSetpoint should be equals to 'V on bus2 + slopeSVC * QstaticVarCompensators'", networkPVLQ.getStaticVarCompensator("bus2svc2").getVoltageSetpoint(),
-                    new LoadFlowAssert.EqualsTo(networkPVLQ.getBusView().getBus("vl2_0").getV() +
-                            slopeStaticVarCompensators * (-qStaticVarCompensatorsPVLQ), DELTA_V));
+                    new LoadFlowAssert.EqualsTo(networkPVLQ.getBusView().getBus("vl2_0").getV() + slopeTimesQ, DELTA_V));
             assertThat("Network " + networkDescription + " : Qsvc should be greater with bus PVLQ than PV", -qStaticVarCompensatorsPVLQ,
                     new LoadFlowAssert.GreaterThan(-qStaticVarCompensatorsPV));
             assertThat("Network " + networkDescription + " : V on bus2 should be greater with bus PVLQ than PV", networkPVLQ.getBusView().getBus("vl2_0").getV(),
@@ -205,7 +206,25 @@ class AcLoadFlowSvcTest {
         }
     }
 
-    private void shouldRunLoadFlowWithBusPVlq(int additionnalSvcCount, double[] voltageSetpoints, double[] slopes, double[] bMins, double[] bMaxs) {
+    private void shouldCheckAxiom(LoadFlowRunResults<NetworkDescription, RunningParameters> loadFlowRunResults, boolean qSvcInBounds) {
+        if (qSvcInBounds) {
+            Map<NetworkDescription, Map<RunningParameters, Network>> networkResultByRunningParametersAndNetworkDescription = loadFlowRunResults.getNetworkResultByRunningParametersAndNetworkDescription();
+            for (NetworkDescription networkDescription : networkResultByRunningParametersAndNetworkDescription.keySet()) {
+                Map<RunningParameters, Network> networkResultByRunningParameters = networkResultByRunningParametersAndNetworkDescription.get(networkDescription);
+                Network networkPVLQ = networkResultByRunningParameters.get(RunningParameters.USE_BUS_PVLQ);
+                Double qStaticVarCompensatorsPVLQ = computeQStaticVarCompensators(networkPVLQ);
+                double sumSlope = StreamSupport.stream(networkPVLQ.getStaticVarCompensators().spliterator(), false).
+                        mapToDouble(staticVarCompensator -> staticVarCompensator.getExtension(VoltagePerReactivePowerControl.class).getSlope()).sum();
+                for (StaticVarCompensator staticVarCompensator : networkPVLQ.getStaticVarCompensators()) {
+                    Assertions.assertEquals(staticVarCompensator.getTerminal().getQ(),
+                            staticVarCompensator.getExtension(VoltagePerReactivePowerControl.class).getSlope() * qStaticVarCompensatorsPVLQ / sumSlope,
+                            DELTA_MISMATCH, "should check axiom : qSVCi = slopeSVCi * sumQ / sumSlope");
+                }
+            }
+        }
+    }
+
+    private void shouldRunLoadFlowWithBusPVlq(int additionnalSvcCount, double[] voltageSetpoints, double[] slopes, double[] bMins, double[] bMaxs, boolean qSvcInBounds) {
         this.parametersExt.getAdditionalObservers().add(new LfNetworkAndEquationSystemCreationAcLoadFlowObserver());
 
         // 1 - build loadflow results
@@ -225,22 +244,23 @@ class AcLoadFlowSvcTest {
         shouldLowerQsvc("with a generator addition, Qsvc should be lower", loadFlowRunResults, NetworkDescription.BUS1_GEN_BUS2_SVC_LOAD_GEN, NetworkDescription.BUS1_GEN_BUS2_SVC_LOAD);
         shouldLowerQsvc("with a shunt addition, Qsvc should be lower", loadFlowRunResults, NetworkDescription.BUS1_GEN_BUS2_SVC_LOAD_GEN_SC, NetworkDescription.BUS1_GEN_BUS2_SVC_LOAD_GEN);
         loadFlowRunResults.shouldHaveValidSumOfQinLines();
+        shouldCheckAxiom(loadFlowRunResults, qSvcInBounds);
     }
 
     @Test
     void shouldRunLoadFlowWithBusPVlqAndOneSVC() {
-        shouldRunLoadFlowWithBusPVlq(1, new double[]{385}, new double[]{0.01}, new double[]{-0.008}, new double[]{0.008});
+        shouldRunLoadFlowWithBusPVlq(1, new double[]{385}, new double[]{0.01}, new double[]{-0.008}, new double[]{0.008}, true);
     }
 
     @Test
-    void shouldRunLoadFlowWithBusPVlqAndTwoSVC() {
-        shouldRunLoadFlowWithBusPVlq(2, new double[]{385, 385}, new double[]{0.01, 0.02}, new double[]{-0.008, -0.008}, new double[]{0.008, 0.008});
+    void shouldRunLoadFlowWithBusPVlqAndThreeSVC() {
+        shouldRunLoadFlowWithBusPVlq(3, new double[]{385, 385, 385}, new double[]{0.01, 0.015, 0.02}, new double[]{-0.008, -0.008, -0.008}, new double[]{0.008, 0.008, 0.008}, true);
     }
 
-//    @Test
-//    void shouldRunLoadFlowWithBusPVlqAndSVCWithExceededLimit() {
-//        shouldRunLoadFlowWithBusPVlq(3, new double[]{385, 385, 385}, new double[]{0.01, 0.015, 0.02}, new double[]{-0.0001, -0.000075, -0.00005}, new double[]{0.0001, 0.000075, 0.00005});
-//    }
+    @Test
+    void shouldRunLoadFlowWithBusPVlqAndSVCWithExceededLimit() {
+        shouldRunLoadFlowWithBusPVlq(3, new double[]{385, 385, 385}, new double[]{0.01, 0.015, 0.02}, new double[]{-0.006, -0.001, -0.00075}, new double[]{0.006, 0.001, 0.00075}, false);
+    }
 
     @Test
     void shouldSwitchPvlqToPq() {
@@ -268,7 +288,6 @@ class AcLoadFlowSvcTest {
         NetworkBuilder networkBuilder = new NetworkBuilder();
         Network network = networkBuilder.addNetworkWithGenOnBus1AndEmptyBus2().addSvcWithVoltageAndSlopeOnBus2(1, new double[]{385}, new double[]{0.01}, new double[]{-0.001}, new double[]{0.001}).addLoadOnBus2().build();
         parametersExt.setUseBusPVLQ(true);
-        Double slope = networkBuilder.getAdditionnalSvcOnBus2().get(0).getExtension(VoltagePerReactivePowerControl.class).getSlope();
 
         // assertions
         assertTrue(loadFlowRunner.run(network, parameters).isOk());

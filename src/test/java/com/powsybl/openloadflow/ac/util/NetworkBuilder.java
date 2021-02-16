@@ -166,6 +166,10 @@ public class NetworkBuilder {
     }
 
     public NetworkBuilder addSvcWithVoltageAndSlopeOnBus2(int additionnalSvcCount, double[] voltageSetpoints, double[] slopes, double[] bMins, double[] bMaxs) {
+        if (voltageSetpoints == null || slopes == null || bMins == null || bMaxs == null ||
+                voltageSetpoints.length < additionnalSvcCount || slopes.length < additionnalSvcCount || bMins.length < additionnalSvcCount || bMaxs.length < additionnalSvcCount) {
+            throw new IllegalArgumentException("invalid arrays");
+        }
         for (int i = 0; i < additionnalSvcCount; i++) {
             StaticVarCompensator svc = vl2.newStaticVarCompensator()
                     .setId("bus2svc" + (i + 2))

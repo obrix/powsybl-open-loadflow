@@ -68,7 +68,7 @@ public class ReactiveLimitsOuterLoop implements OuterLoop {
         }
     }
 
-    public static void updateControlledBus(LfBus controlledBus, EquationSystem equationSystem, VariableSet variableSet) {
+    static void updateControlledBus(LfBus controlledBus, EquationSystem equationSystem, VariableSet variableSet) {
         // clean reactive power distribution equations
         controlledBus.getControllerBuses().forEach(b -> equationSystem.removeEquation(b.getNum(), EquationType.ZERO_Q));
 
@@ -224,7 +224,7 @@ public class ReactiveLimitsOuterLoop implements OuterLoop {
         }
     }
 
-    public double getV(LfBus bus, EquationSystem equationSystem) {
+    double getV(LfBus bus, EquationSystem equationSystem) {
         Optional<Equation> equationBusVLQ = equationSystem.getEquation(bus.getNum(), EquationType.BUS_VLQ);
         if (equationBusVLQ.isPresent()) {
             Optional<StaticVarCompensatorVoltageLambdaQEquationTerm> staticVarCompensatorVoltageLambdaQEquationTerm = equationBusVLQ.get().getTerms().stream().filter(equationTerm -> equationTerm instanceof StaticVarCompensatorVoltageLambdaQEquationTerm)
