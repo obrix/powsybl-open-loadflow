@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import static com.powsybl.openloadflow.util.LoadFlowAssert.DELTA_POWER;
 
-public class LfBusImplTest {
+class LfBusImplTest {
     private Network network;
     private Bus bus;
     private StaticVarCompensator svc1;
@@ -86,10 +86,7 @@ public class LfBusImplTest {
         lfBus.addStaticVarCompensator(svc3, 1.0, lfNetworkLoadingReport);
         double generationQ = -6.412103131789854;
         lfBus.updateGeneratorsState(generationQ * PerUnit.SB, true);
-        double sumQ = 0;
-        for (LfGenerator lfGenerator : lfBus.getGenerators()) {
-            sumQ += lfGenerator.getCalculatedQ();
-        }
+        double sumQ = lfBus.getGenerators().stream().mapToDouble(LfGenerator::getCalculatedQ).sum();
         Assertions.assertEquals(generationQ, sumQ, DELTA_POWER, "sum of generators calculatedQ should be equals to qToDispatch");
     }
 }

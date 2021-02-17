@@ -160,7 +160,7 @@ class StaticVarCompensatorVoltageLambdaQEquationTermTest {
     }
 
     @Test
-    void evalAndDerOnTermsFromEquationBUSQTest() {
+    void evalAndDerOnTermsFromEquationBusQTest() {
         // equation without term to eval
         Equation equation = equationSystem.createEquation(lfBus1GenVoltage.getNum(), EquationType.BUS_PHI);
         StaticVarCompensatorVoltageLambdaQEquationTerm.EvalAndDerOnTermsFromEquationBUSQ evalAndDerOnTermsFromEquationBUSQ = staticVarCompensatorVoltageLambdaQEquationTerm.evalAndDerOnTermsFromEquationBUSQ(new double[]{1, 0, 1, 0}, equation);
