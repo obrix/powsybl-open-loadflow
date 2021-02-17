@@ -448,7 +448,7 @@ public abstract class AbstractLfBus implements LfBus {
         }
     }
 
-    private void dispatchQAccordingToSvcSlope(List<LfStaticVarCompensatorImpl> lfStaticVarCompensators, boolean reactiveLimits, double qToDispatch) {
+    void dispatchQAccordingToSvcSlope(List<LfStaticVarCompensatorImpl> lfStaticVarCompensators, boolean reactiveLimits, double qToDispatch) {
         if (!lfStaticVarCompensators.isEmpty() && qToDispatch != 0) {
             double sumSlope = lfStaticVarCompensators.stream().mapToDouble(LfStaticVarCompensatorImpl::getSlope).sum();
             if (!reactiveLimits) {

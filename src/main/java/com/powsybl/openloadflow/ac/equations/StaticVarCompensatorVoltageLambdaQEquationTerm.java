@@ -184,8 +184,9 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
     }
 
     double getSumQgeneratorsWithoutVoltageRegulator() {
-        return lfBus.getGenerators().stream().filter(lfGenerator -> !(lfGenerator instanceof LfStaticVarCompensatorImpl) && !lfGenerator.hasVoltageControl())
-                .mapToDouble(LfGenerator::getTargetQ).sum();
+        return lfBus.getGenerators().stream().
+                filter(lfGenerator -> !(lfGenerator instanceof LfStaticVarCompensatorImpl) && !lfGenerator.hasVoltageControl()).
+                mapToDouble(LfGenerator::getTargetQ).sum();
     }
 
     @Override

@@ -1,7 +1,9 @@
 package com.powsybl.openloadflow.ac.util;
 
 import com.powsybl.iidm.network.*;
+import com.powsybl.iidm.network.extensions.LoadDetail;
 import com.powsybl.iidm.network.extensions.VoltagePerReactivePowerControlAdder;
+import com.powsybl.iidm.network.impl.extensions.LoadDetailImpl;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -162,6 +164,11 @@ public class NetworkBuilder {
                 .setP0(101)
                 .setQ0(150)
                 .add();
+        return this;
+    }
+
+    public NetworkBuilder setLoadDetailOnBus2() {
+        loadOnBus2.addExtension(LoadDetail.class, new LoadDetailImpl(loadOnBus2, 100, 150, 0, 0));
         return this;
     }
 
