@@ -23,8 +23,6 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
 
     private final List<Variable> variables;
 
-    private double v;
-
     private double targetV;
 
     private double dfdv;
@@ -97,7 +95,7 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
     @Override
     public void update(double[] x) {
         Objects.requireNonNull(x);
-        v = x[vVar.getRow()];
+        double v = x[vVar.getRow()];
         double slopeStaticVarCompensators = computeSlopeStaticVarCompensators(lfStaticVarCompensators);
         Equation reactiveEquation = equationSystem.createEquation(lfBus.getNum(), EquationType.BUS_Q);
 
@@ -149,10 +147,10 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
                 || equationTerm instanceof ClosedBranchSide2ReactiveFlowEquationTerm;
     }
 
-    private class EvalAndDerOnTermsFromEquationBUSQ {
-        private final double qBusMinusShunts;
-        private final double dQdVbusMinusShunts;
-        private final double dQdPHbusMinusShunts;
+    class EvalAndDerOnTermsFromEquationBUSQ {
+        final double qBusMinusShunts;
+        final double dQdVbusMinusShunts;
+        final double dQdPHbusMinusShunts;
 
         public EvalAndDerOnTermsFromEquationBUSQ(double qBusMinusShunts, double dQdVbusMinusShunts, double dQdPHbusMinusShunts) {
             this.qBusMinusShunts = qBusMinusShunts;
@@ -164,9 +162,10 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
     /**
      *
      * @param x vector of variable values initialized with a VoltageInitializer
+     * @param reactiveEquation
      * @return sum evaluation and derivatives on branch and shunt terms from BUS_Q equation
      */
-    private EvalAndDerOnTermsFromEquationBUSQ evalAndDerOnTermsFromEquationBUSQ(double[] x, Equation reactiveEquation) {
+    EvalAndDerOnTermsFromEquationBUSQ evalAndDerOnTermsFromEquationBUSQ(double[] x, Equation reactiveEquation) {
         double qBusMinusShunts = 0;
         double dQdVbusMinusShunts = 0;
         double dQdPHbusMinusShunts = 0;
@@ -184,7 +183,7 @@ public class StaticVarCompensatorVoltageLambdaQEquationTerm extends AbstractName
         return new EvalAndDerOnTermsFromEquationBUSQ(qBusMinusShunts, dQdVbusMinusShunts, dQdPHbusMinusShunts);
     }
 
-    private double getSumQgeneratorsWithoutVoltageRegulator() {
+    double getSumQgeneratorsWithoutVoltageRegulator() {
         return lfBus.getGenerators().stream().filter(lfGenerator -> !(lfGenerator instanceof LfStaticVarCompensatorImpl) && !lfGenerator.hasVoltageControl())
                 .mapToDouble(LfGenerator::getTargetQ).sum();
     }

@@ -40,7 +40,7 @@ class StaticVarCompensatorVoltageLambdaQEquationTermTest {
         variableSet = loadFlowTestToolsSvcVoltageWithSlope.getVariableSet();
         equationSystem = loadFlowTestToolsSvcVoltageWithSlope.getEquationSystem();
         staticVarCompensatorVoltageLambdaQEquationTerm =
-                loadFlowTestToolsSvcVoltageWithSlope.getEquationSystem().getEquationTerm(SubjectType.BUS, lfBus2SvcVoltageWithSlope.getNum(), StaticVarCompensatorVoltageLambdaQEquationTerm.class);
+                equationSystem.getEquationTerm(SubjectType.BUS, lfBus2SvcVoltageWithSlope.getNum(), StaticVarCompensatorVoltageLambdaQEquationTerm.class);
     }
 
     @Test
@@ -92,15 +92,25 @@ class StaticVarCompensatorVoltageLambdaQEquationTermTest {
 
     @Test
     void computeSlopeStaticVarCompensatorsTest() {
+        // 1 svc with 0 slope
         Assertions.assertEquals(0, staticVarCompensatorVoltageLambdaQEquationTerm.computeSlopeStaticVarCompensators(null));
         Assertions.assertEquals(0, staticVarCompensatorVoltageLambdaQEquationTerm.computeSlopeStaticVarCompensators(new ArrayList<LfStaticVarCompensatorImpl>()));
         LfStaticVarCompensatorImpl lfStaticVarCompensator = lfStaticVarCompensators.get(0);
         lfStaticVarCompensator.getVoltagePerReactivePowerControl().setSlope(0);
         Assertions.assertEquals(0, staticVarCompensatorVoltageLambdaQEquationTerm.computeSlopeStaticVarCompensators(lfStaticVarCompensators));
-        lfStaticVarCompensator.getVoltagePerReactivePowerControl().setSlope(0.01);
-        Assertions.assertEquals(0.0025, staticVarCompensatorVoltageLambdaQEquationTerm.computeSlopeStaticVarCompensators(lfStaticVarCompensators));
+
+        // 1 svc with 0 slope
+        Assertions.assertEquals(0, staticVarCompensatorVoltageLambdaQEquationTerm.computeSlopeStaticVarCompensators(lfStaticVarCompensators));
+
+        // 2 svc with 0 slope
         lfStaticVarCompensators.add(lfStaticVarCompensator);
+        Assertions.assertEquals(0, staticVarCompensatorVoltageLambdaQEquationTerm.computeSlopeStaticVarCompensators(lfStaticVarCompensators));
+
+        // 2 svc with 0.01 slope
+        lfStaticVarCompensator.getVoltagePerReactivePowerControl().setSlope(0.01);
         Assertions.assertEquals(0.00125, staticVarCompensatorVoltageLambdaQEquationTerm.computeSlopeStaticVarCompensators(lfStaticVarCompensators));
+
+        // 2 svc with 0.01 slope + 1 svc with 0.02 slope
         networkBuilder.addSvcWithVoltageAndSlopeOnBus2(1, new double[]{385}, new double[]{0.02}, new double[]{-0.008}, new double[]{0.008});
         StaticVarCompensator bus2svc2 = networkBuilder.getAdditionnalSvcOnBus2().get(0);
         lfStaticVarCompensators.add(LfStaticVarCompensatorImpl.create(bus2svc2, (AbstractLfBus) lfBus2SvcVoltageWithSlope));
@@ -110,7 +120,7 @@ class StaticVarCompensatorVoltageLambdaQEquationTermTest {
     @Test
     void hasToEvalAndDerTermTest() {
         // build or get equation terms
-        Equation equation = loadFlowTestToolsSvcVoltageWithSlope.getEquationSystem().createEquation(lfBus2SvcVoltageWithSlope.getNum(), EquationType.BUS_Q);
+        Equation equation = equationSystem.createEquation(lfBus2SvcVoltageWithSlope.getNum(), EquationType.BUS_Q);
         ShuntCompensatorReactiveFlowEquationTerm shuntCompensatorReactiveFlowEquationTerm = equation.getTerms().stream().filter(equationTerm -> equationTerm instanceof ShuntCompensatorReactiveFlowEquationTerm).map(ShuntCompensatorReactiveFlowEquationTerm.class::cast).findFirst().get();
         ClosedBranchSide1ReactiveFlowEquationTerm closedBranchSide1ReactiveFlowEquationTerm =
                 new ClosedBranchSide1ReactiveFlowEquationTerm(lfBus1GenVoltage.getBranches().get(0), lfBus1GenVoltage, lfBus2SvcVoltageWithSlope, loadFlowTestToolsSvcVoltageWithSlope.getVariableSet(), false, false);
@@ -147,6 +157,30 @@ class StaticVarCompensatorVoltageLambdaQEquationTermTest {
         Assertions.assertTrue(staticVarCompensatorVoltageLambdaQEquationTerm.hasPhiVar(closedBranchSide1ReactiveFlowEquationTerm));
         Assertions.assertTrue(staticVarCompensatorVoltageLambdaQEquationTerm.hasPhiVar(closedBranchSide2ReactiveFlowEquationTerm));
         Assertions.assertFalse(staticVarCompensatorVoltageLambdaQEquationTerm.hasPhiVar(shuntCompensatorReactiveFlowEquationTerm));
+    }
+
+    @Test
+    void evalAndDerOnTermsFromEquationBUSQTest() {
+        // equation without term to eval
+        Equation equation = equationSystem.createEquation(lfBus1GenVoltage.getNum(), EquationType.BUS_PHI);
+        StaticVarCompensatorVoltageLambdaQEquationTerm.EvalAndDerOnTermsFromEquationBUSQ evalAndDerOnTermsFromEquationBUSQ = staticVarCompensatorVoltageLambdaQEquationTerm.evalAndDerOnTermsFromEquationBUSQ(new double[]{1, 0, 1, 0}, equation);
+        Assertions.assertEquals(0, evalAndDerOnTermsFromEquationBUSQ.qBusMinusShunts);
+        Assertions.assertEquals(0, evalAndDerOnTermsFromEquationBUSQ.dQdVbusMinusShunts);
+        Assertions.assertEquals(0, evalAndDerOnTermsFromEquationBUSQ.dQdPHbusMinusShunts);
+    }
+
+    @Test
+    void getSumQgeneratorsWithoutVoltageRegulatorTest() {
+        // 1 svc with reactive regulation + 1 svc with voltage regulation + 1 generator without voltage regulation + 1 generator with voltage regulation
+        NetworkBuilder nb = new NetworkBuilder();
+        LoadFlowTestTools loadFlowTestTools = new LoadFlowTestTools(nb.addNetworkWithGenOnBus1AndSvcOnBus2().
+                setSvcRegulationModeOnBus2(StaticVarCompensator.RegulationMode.REACTIVE_POWER).
+                addSvcWithVoltageAndSlopeOnBus2(1, new double[]{385}, new double[]{0.01}, new double[]{-0.001}, new double[]{0.001}).
+                addGenWithoutVoltageRegulatorOnBus2().addGenWithVoltageRegulatorOnBus2().build());
+        equationSystem = loadFlowTestToolsSvcVoltageWithSlope.getEquationSystem();
+        StaticVarCompensatorVoltageLambdaQEquationTerm equationTerm =
+                equationSystem.getEquationTerm(SubjectType.BUS, loadFlowTestTools.getLfNetwork().getBusById("vl2_0").getNum(), StaticVarCompensatorVoltageLambdaQEquationTerm.class);
+        Assertions.assertEquals(3, equationTerm.getSumQgeneratorsWithoutVoltageRegulator());
     }
 
     @Test

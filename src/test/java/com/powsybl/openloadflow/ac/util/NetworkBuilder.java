@@ -192,7 +192,7 @@ public class NetworkBuilder {
     public NetworkBuilder addGenWithoutVoltageRegulatorOnBus2() {
         genOnBus2 = bus2.getVoltageLevel()
                 .newGenerator()
-                .setId("bus2gen")
+                .setId("bus2gen1")
                 .setBus(bus2.getId())
                 .setConnectableBus(bus2.getId())
                 .setEnergySource(EnergySource.THERMAL)
@@ -201,6 +201,22 @@ public class NetworkBuilder {
                 .setTargetP(0)
                 .setTargetQ(300)
                 .setVoltageRegulatorOn(false)
+                .add();
+        return this;
+    }
+
+    public NetworkBuilder addGenWithVoltageRegulatorOnBus2() {
+        genOnBus2 = bus2.getVoltageLevel()
+                .newGenerator()
+                .setId("bus2gen2")
+                .setBus(bus2.getId())
+                .setConnectableBus(bus2.getId())
+                .setEnergySource(EnergySource.THERMAL)
+                .setTargetV(390)
+                .setMinP(100)
+                .setMaxP(300)
+                .setTargetP(0)
+                .setVoltageRegulatorOn(true)
                 .add();
         return this;
     }
