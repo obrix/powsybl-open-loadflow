@@ -6,8 +6,7 @@
  */
 package com.powsybl.openloadflow.ac;
 
-import com.powsybl.iidm.network.Network;
-import com.powsybl.iidm.network.StaticVarCompensator;
+import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.extensions.VoltagePerReactivePowerControl;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
@@ -24,6 +23,7 @@ import com.powsybl.openloadflow.equations.EquationType;
 import com.powsybl.openloadflow.network.MostMeshedSlackBusSelector;
 import com.powsybl.openloadflow.util.LoadFlowAssert;
 import com.powsybl.openloadflow.util.LoadFlowRunResults;
+import com.powsybl.openloadflow.util.LoadFlowTestTools;
 import org.hamcrest.core.IsEqual;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -243,7 +243,7 @@ class AcLoadFlowSvcTest {
         shouldIncreaseQsvc("with a load addition, Qsvc should be greater", loadFlowRunResults, NetworkDescription.BUS1_GEN_BUS2_SVC_LOAD, NetworkDescription.BUS1_GEN_BUS2_SVC);
         shouldLowerQsvc("with a generator addition, Qsvc should be lower", loadFlowRunResults, NetworkDescription.BUS1_GEN_BUS2_SVC_LOAD_GEN, NetworkDescription.BUS1_GEN_BUS2_SVC_LOAD);
         shouldLowerQsvc("with a shunt addition, Qsvc should be lower", loadFlowRunResults, NetworkDescription.BUS1_GEN_BUS2_SVC_LOAD_GEN_SC, NetworkDescription.BUS1_GEN_BUS2_SVC_LOAD_GEN);
-        loadFlowRunResults.shouldHaveValidSumOfQinLines();
+        LoadFlowTestTools.shouldHaveValidSumOfQinLines(loadFlowRunResults);
         shouldCheckAxiom(loadFlowRunResults, qSvcInBounds);
     }
 
