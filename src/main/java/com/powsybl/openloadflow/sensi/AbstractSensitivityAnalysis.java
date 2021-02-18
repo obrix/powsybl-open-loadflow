@@ -10,8 +10,6 @@ import com.powsybl.commons.PowsyblException;
 import com.powsybl.iidm.network.Bus;
 import com.powsybl.iidm.network.Injection;
 import com.powsybl.iidm.network.Network;
-import com.powsybl.math.matrix.DenseMatrix;
-import com.powsybl.math.matrix.LUDecomposition;
 import com.powsybl.math.matrix.MatrixFactory;
 import com.powsybl.openloadflow.equations.EquationSystem;
 import com.powsybl.openloadflow.equations.JacobianMatrix;
@@ -47,19 +45,27 @@ public abstract class AbstractSensitivityAnalysis {
         Injection<?> injection = network.getGenerator(injectionId);
         if (injection == null) {
             injection = network.getLoad(injectionId);
-            if (injection == null) {
-                if (failIfAbsent) {
-                    throw new PowsyblException("Injection '" + injectionId + "' not found");
-                } else {
-                    return null;
-                }
-            }
         }
+        if (injection == null) {
+            injection = network.getLccConverterStation(injectionId);
+        }
+        if (injection == null) {
+            injection = network.getVscConverterStation(injectionId);
+        }
+
+        if (failIfAbsent && injection == null) {
+            throw new PowsyblException("Injection '" + injectionId + "' not found");
+        }
+
         return injection;
     }
 
     protected static LfBus getInjectionLfBus(Network network, LfNetwork lfNetwork, BranchFlowPerInjectionIncrease injectionFactor) {
-        Injection<?> injection = getInjection(network, injectionFactor.getVariable().getInjectionId());
+        return getInjectionLfBus(network, lfNetwork, injectionFactor.getVariable().getInjectionId());
+    }
+
+    protected static LfBus getInjectionLfBus(Network network, LfNetwork lfNetwork, String injectionId) {
+        Injection<?> injection = getInjection(network, injectionId);
         Bus bus = injection.getTerminal().getBusView().getBus();
         return lfNetwork.getBusById(bus.getId());
     }
@@ -71,27 +77,6 @@ public abstract class AbstractSensitivityAnalysis {
     protected JacobianMatrix createJacobianMatrix(EquationSystem equationSystem, VoltageInitializer voltageInitializer) {
         double[] x = equationSystem.createStateVector(voltageInitializer);
         equationSystem.updateEquations(x);
-        return JacobianMatrix.create(equationSystem, matrixFactory);
+        return new JacobianMatrix(equationSystem, matrixFactory);
     }
-
-    protected DenseMatrix solve(DenseMatrix rhs, JacobianMatrix j) {
-        try {
-            LUDecomposition lu = j.decomposeLU();
-            lu.solve(rhs);
-        } finally {
-            j.cleanLU();
-        }
-        return rhs; // rhs now contains state matrix
-    }
-
-    protected DenseMatrix solveTransposed(DenseMatrix rhs, JacobianMatrix j) {
-        try {
-            LUDecomposition lu = j.decomposeLU();
-            lu.solveTransposed(rhs);
-        } finally {
-            j.cleanLU();
-        }
-        return rhs; // rhs now contains state matrix
-    }
-
 }

@@ -9,7 +9,6 @@ package com.powsybl.openloadflow.dc;
 import com.google.common.base.Stopwatch;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.LoadFlowResult;
-import com.powsybl.math.matrix.LUDecomposition;
 import com.powsybl.math.matrix.MatrixFactory;
 import com.powsybl.openloadflow.dc.equations.DcEquationSystem;
 import com.powsybl.openloadflow.dc.equations.DcEquationSystemCreationParameters;
@@ -23,6 +22,7 @@ import com.powsybl.openloadflow.network.LfNetwork;
 import com.powsybl.openloadflow.network.LfNetworkParameters;
 import com.powsybl.openloadflow.network.util.ActivePowerDistribution;
 import com.powsybl.openloadflow.util.Markers;
+import com.powsybl.openloadflow.util.ParameterConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,11 +45,12 @@ public class DcLoadFlowEngine {
 
     public DcLoadFlowEngine(LfNetwork network, MatrixFactory matrixFactory) {
         this.networks = Collections.singletonList(network);
-        parameters = new DcLoadFlowParameters(new FirstSlackBusSelector(), matrixFactory, false, true, false, LoadFlowParameters.BalanceType.PROPORTIONAL_TO_GENERATION_P_MAX);
+        parameters = new DcLoadFlowParameters(new FirstSlackBusSelector(), matrixFactory, false, true, false, LoadFlowParameters.BalanceType.PROPORTIONAL_TO_GENERATION_P_MAX, false,
+                ParameterConstants.PLAUSIBLE_ACTIVE_POWER_LIMIT_DEFAULT_VALUE);
     }
 
     public DcLoadFlowEngine(Object network, DcLoadFlowParameters parameters) {
-        this.networks = LfNetwork.load(network, new LfNetworkParameters(parameters.getSlackBusSelector(), false, false, false, false));
+        this.networks = LfNetwork.load(network, new LfNetworkParameters(parameters.getSlackBusSelector(), false, false, false, false, parameters.getPlausibleActivePowerLimit()));
         this.parameters = Objects.requireNonNull(parameters);
     }
 
@@ -74,7 +75,8 @@ public class DcLoadFlowEngine {
             distributeSlack(network);
         }
 
-        EquationSystem equationSystem = DcEquationSystem.create(network, new VariableSet(), new DcEquationSystemCreationParameters(parameters.isUpdateFlows(), false, false, parameters.isUseTransformerRatio()));
+        DcEquationSystemCreationParameters creationParameters = new DcEquationSystemCreationParameters(parameters.isUpdateFlows(), false, parameters.isForcePhaseControlOffAndAddAngle1Var(), parameters.isUseTransformerRatio());
+        EquationSystem equationSystem = DcEquationSystem.create(network, new VariableSet(), creationParameters);
 
         double[] x = equationSystem.createStateVector(new UniformValueVoltageInitializer());
 
@@ -82,14 +84,12 @@ public class DcLoadFlowEngine {
 
         double[] targets = equationSystem.createTargetVector();
 
-        JacobianMatrix j = JacobianMatrix.create(equationSystem, parameters.getMatrixFactory());
-        try {
+        try (JacobianMatrix j = new JacobianMatrix(equationSystem, parameters.getMatrixFactory())) {
             double[] dx = Arrays.copyOf(targets, targets.length);
 
             LoadFlowResult.ComponentResult.Status status;
             try {
-                LUDecomposition lu = j.decomposeLU();
-                lu.solveTransposed(dx);
+                j.solveTransposed(dx);
                 status = LoadFlowResult.ComponentResult.Status.CONVERGED;
             } catch (Exception e) {
                 status = LoadFlowResult.ComponentResult.Status.FAILED;
@@ -110,8 +110,6 @@ public class DcLoadFlowEngine {
             LOGGER.info("Dc loadflow complete (status={})", status);
 
             return new DcLoadFlowResult(network, network.getActivePowerMismatch(), status);
-        } finally {
-            j.cleanLU();
         }
     }
 }

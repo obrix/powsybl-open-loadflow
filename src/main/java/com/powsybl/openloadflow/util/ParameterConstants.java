@@ -37,6 +37,9 @@ public final class ParameterConstants {
     public static final String USE_BUS_PVLQ = "useBusPVLQ";
     public static final boolean USE_BUS_PVLQ_DEFAULT_VALUE = false;
 
+    public static final String PLAUSIBLE_ACTIVE_POWER_LIMIT_PARAM_NAME = "plausibleActivePowerLimit";
+    public static final double PLAUSIBLE_ACTIVE_POWER_LIMIT_DEFAULT_VALUE = 10000;
+
     private ParameterConstants() {
     }
 }

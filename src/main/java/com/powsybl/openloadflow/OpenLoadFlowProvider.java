@@ -26,7 +26,6 @@ import com.powsybl.openloadflow.ac.outerloop.OuterLoop;
 import com.powsybl.openloadflow.dc.DcLoadFlowEngine;
 import com.powsybl.openloadflow.dc.DcLoadFlowParameters;
 import com.powsybl.openloadflow.dc.DcLoadFlowResult;
-import com.powsybl.openloadflow.dc.equations.DcEquationSystem;
 import com.powsybl.openloadflow.equations.PreviousValueVoltageInitializer;
 import com.powsybl.openloadflow.equations.UniformValueVoltageInitializer;
 import com.powsybl.openloadflow.equations.VoltageInitializer;
@@ -46,6 +45,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
+import static com.powsybl.openloadflow.network.LfNetwork.LOW_IMPEDANCE_THRESHOLD;
+
 /**
  * @author Sylvain Leclerc <sylvain.leclerc at rte-france.com>
  */
@@ -58,12 +59,18 @@ public class OpenLoadFlowProvider implements LoadFlowProvider {
 
     private final MatrixFactory matrixFactory;
 
+    private boolean forcePhaseControlOffAndAddAngle1Var = false; // just for unit testing
+
     public OpenLoadFlowProvider() {
         this(new SparseMatrixFactory());
     }
 
     public OpenLoadFlowProvider(MatrixFactory matrixFactory) {
         this.matrixFactory = Objects.requireNonNull(matrixFactory);
+    }
+
+    public void setForcePhaseControlOffAndAddAngle1Var(boolean forcePhaseControlOffAndAddAngle1Var) {
+        this.forcePhaseControlOffAndAddAngle1Var = forcePhaseControlOffAndAddAngle1Var;
     }
 
     @Override
@@ -131,6 +138,7 @@ public class OpenLoadFlowProvider implements LoadFlowProvider {
         LOGGER.info("Transformer voltage control: {}", parameters.isTransformerVoltageControlOn());
         LOGGER.info("Load power factor constant: {}", parametersExt.isLoadPowerFactorConstant());
         LOGGER.info("Use bus (P,V+slopeStaticVarCompensator*Q): {}", parametersExt.isUseBusPVLQ());
+        LOGGER.info("Plausible active power limit: {}", parametersExt.getPlausibleActivePowerLimit());
 
         List<OuterLoop> outerLoops = new ArrayList<>();
         if (parameters.isDistributedSlack()) {
@@ -154,7 +162,9 @@ public class OpenLoadFlowProvider implements LoadFlowProvider {
                 parameters.isTransformerVoltageControlOn(),
                 parametersExt.getLowImpedanceBranchMode() == OpenLoadFlowParameters.LowImpedanceBranchMode.REPLACE_BY_MIN_IMPEDANCE_LINE,
                 parameters.isTwtSplitShuntAdmittance(),
-                breakers, parametersExt.isUseBusPVLQ());
+                breakers,
+                parametersExt.isUseBusPVLQ(),
+                parametersExt.getPlausibleActivePowerLimit());
     }
 
     private CompletableFuture<LoadFlowResult> runAc(Network network, String workingStateId, LoadFlowParameters parameters, OpenLoadFlowParameters parametersExt) {
@@ -207,7 +217,7 @@ public class OpenLoadFlowProvider implements LoadFlowProvider {
                     double nominalV = line.getTerminal1().getVoltageLevel().getNominalV();
                     double zb = nominalV * nominalV / PerUnit.SB;
                     double z = Math.hypot(line.getR(), line.getX());
-                    return z / zb <= DcEquationSystem.LOW_IMPEDANCE_THRESHOLD;
+                    return z / zb <= LOW_IMPEDANCE_THRESHOLD;
                 }).complete();
             }
 
@@ -221,8 +231,16 @@ public class OpenLoadFlowProvider implements LoadFlowProvider {
             network.getVariantManager().setWorkingVariant(workingStateId);
 
             SlackBusSelector slackBusSelector = getSlackBusSelector(network, parameters, parametersExt);
+
+            LOGGER.info("Slack bus selector: {}", slackBusSelector.getClass().getSimpleName());
+            LOGGER.info("Use transformer ratio: {}", parametersExt.isDcUseTransformerRatio());
+            LOGGER.info("Distributed slack: {}", parameters.isDistributedSlack());
+            LOGGER.info("Balance type: {}", parameters.getBalanceType());
+            LOGGER.info("Plausible active power limit: {}", parametersExt.getPlausibleActivePowerLimit());
+
             DcLoadFlowParameters dcParameters = new DcLoadFlowParameters(slackBusSelector, matrixFactory, true,
-                    parametersExt.isDcUseTransformerRatio(), parameters.isDistributedSlack(), parameters.getBalanceType());
+                    parametersExt.isDcUseTransformerRatio(), parameters.isDistributedSlack(), parameters.getBalanceType(),
+                    forcePhaseControlOffAndAddAngle1Var, parametersExt.getPlausibleActivePowerLimit());
 
             DcLoadFlowResult result = new DcLoadFlowEngine(network, dcParameters)
                     .run();

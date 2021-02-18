@@ -11,6 +11,7 @@ import com.powsybl.openloadflow.ac.outerloop.AcLoadFlowParameters;
 import com.powsybl.openloadflow.ac.outerloop.AcloadFlowEngine;
 import com.powsybl.openloadflow.equations.EquationSystem;
 import com.powsybl.openloadflow.equations.JacobianMatrix;
+import com.powsybl.openloadflow.equations.UniformValueVoltageInitializer;
 import com.powsybl.openloadflow.equations.VariableSet;
 import com.powsybl.openloadflow.network.LfNetwork;
 
@@ -35,7 +36,8 @@ public class LoadFlowTestTools {
         AcEquationSystemCreationParameters acEquationSystemCreationParameters = new AcEquationSystemCreationParameters(true, false, false, true);
         variableSet = new VariableSet();
         equationSystem = AcEquationSystem.create(lfNetwork, variableSet, acEquationSystemCreationParameters);
-        jacobianMatrix = JacobianMatrix.create(equationSystem, matrixFactory);
+        equationSystem.createStateVector(new UniformValueVoltageInitializer());
+        jacobianMatrix = new JacobianMatrix(equationSystem, matrixFactory);
     }
 
     public static boolean isClosedLine(Line line) {
