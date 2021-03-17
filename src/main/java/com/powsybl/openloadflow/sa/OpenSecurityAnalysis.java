@@ -7,6 +7,7 @@
 package com.powsybl.openloadflow.sa;
 
 import com.google.common.base.Stopwatch;
+import com.powsybl.commons.reporter.Reporter;
 import com.powsybl.contingency.ContingenciesProvider;
 import com.powsybl.contingency.Contingency;
 import com.powsybl.iidm.network.Branch;
@@ -21,7 +22,9 @@ import com.powsybl.openloadflow.ac.nr.NewtonRaphsonStatus;
 import com.powsybl.openloadflow.ac.outerloop.AcLoadFlowParameters;
 import com.powsybl.openloadflow.ac.outerloop.AcLoadFlowResult;
 import com.powsybl.openloadflow.ac.outerloop.AcloadFlowEngine;
-import com.powsybl.openloadflow.equations.*;
+import com.powsybl.openloadflow.equations.Equation;
+import com.powsybl.openloadflow.equations.EquationTerm;
+import com.powsybl.openloadflow.equations.PreviousValueVoltageInitializer;
 import com.powsybl.openloadflow.graph.GraphDecrementalConnectivity;
 import com.powsybl.openloadflow.network.LfBranch;
 import com.powsybl.openloadflow.network.LfBus;
@@ -81,7 +84,8 @@ public class OpenSecurityAnalysis implements SecurityAnalysis {
     }
 
     @Override
-    public CompletableFuture<SecurityAnalysisResult> run(String workingVariantId, SecurityAnalysisParameters securityAnalysisParameters, ContingenciesProvider contingenciesProvider) {
+    public CompletableFuture<SecurityAnalysisResult> run(String workingVariantId, SecurityAnalysisParameters securityAnalysisParameters,
+                                                         ContingenciesProvider contingenciesProvider) {
         Objects.requireNonNull(workingVariantId);
         Objects.requireNonNull(securityAnalysisParameters);
         Objects.requireNonNull(contingenciesProvider);
@@ -96,7 +100,6 @@ public class OpenSecurityAnalysis implements SecurityAnalysis {
 
     SecurityAnalysisResult runSync(SecurityAnalysisParameters securityAnalysisParameters, ContingenciesProvider contingenciesProvider) {
         Stopwatch stopwatch = Stopwatch.createStarted();
-
         LoadFlowParameters lfParameters = securityAnalysisParameters.getLoadFlowParameters();
         OpenLoadFlowParameters lfParametersExt = OpenLoadFlowProvider.getParametersExt(securityAnalysisParameters.getLoadFlowParameters());
         // in some post-contingency computation, it does not remain elements to participate to slack distribution.
@@ -133,7 +136,7 @@ public class OpenSecurityAnalysis implements SecurityAnalysis {
             network.getSwitchStream().filter(sw -> sw.getVoltageLevel().getTopologyKind() == TopologyKind.NODE_BREAKER)
                 .forEach(sw -> sw.setRetained(false));
             allSwitchesToOpen.forEach(sw -> sw.setRetained(true));
-            lfNetworks = AcloadFlowEngine.createNetworks(network, acParameters);
+            lfNetworks = AcloadFlowEngine.createNetworks(network, acParameters, Reporter.NO_OP);
         } finally {
             network.getVariantManager().removeVariant(tmpVariantId);
         }

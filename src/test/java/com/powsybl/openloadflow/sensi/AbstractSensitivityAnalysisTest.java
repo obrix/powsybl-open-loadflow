@@ -7,6 +7,8 @@
 package com.powsybl.openloadflow.sensi;
 
 import com.powsybl.commons.PowsyblException;
+import com.powsybl.commons.reporter.LoggerReporter;
+import com.powsybl.commons.reporter.Reporter;
 import com.powsybl.computation.local.LocalComputationManager;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
@@ -114,8 +116,12 @@ public abstract class AbstractSensitivityAnalysisTest {
     }
 
     protected void runAcLf(Network network) {
+        runAcLf(network, Reporter.NO_OP);
+    }
+
+    protected void runAcLf(Network network, Reporter reporter) {
         LoadFlowResult result = new OpenLoadFlowProvider(matrixFactory)
-                .run(network, LocalComputationManager.getDefault(), VariantManagerConstants.INITIAL_VARIANT_ID, new LoadFlowParameters())
+                .run(network, LocalComputationManager.getDefault(), VariantManagerConstants.INITIAL_VARIANT_ID, new LoadFlowParameters(), reporter)
                 .join();
         if (!result.isOk()) {
             throw new PowsyblException("AC LF diverged");
@@ -123,9 +129,13 @@ public abstract class AbstractSensitivityAnalysisTest {
     }
 
     protected void runDcLf(Network network) {
+        runDcLf(network, Reporter.NO_OP);
+    }
+
+    protected void runDcLf(Network network, Reporter reporter) {
         LoadFlowParameters parameters =  new LoadFlowParameters().setDc(true);
         LoadFlowResult result = new OpenLoadFlowProvider(matrixFactory)
-                .run(network, LocalComputationManager.getDefault(), VariantManagerConstants.INITIAL_VARIANT_ID, parameters)
+                .run(network, LocalComputationManager.getDefault(), VariantManagerConstants.INITIAL_VARIANT_ID, parameters, new LoggerReporter())
                 .join();
         if (!result.isOk()) {
             throw new PowsyblException("DC LF failed");
@@ -133,6 +143,10 @@ public abstract class AbstractSensitivityAnalysisTest {
     }
 
     protected void runLf(Network network, LoadFlowParameters loadFlowParameters) {
+        runLf(network, loadFlowParameters, Reporter.NO_OP);
+    }
+
+    protected void runLf(Network network, LoadFlowParameters loadFlowParameters, Reporter reporter) {
         LoadFlowResult result = new OpenLoadFlowProvider(matrixFactory)
                 .run(network, LocalComputationManager.getDefault(), VariantManagerConstants.INITIAL_VARIANT_ID, loadFlowParameters)
                 .join();

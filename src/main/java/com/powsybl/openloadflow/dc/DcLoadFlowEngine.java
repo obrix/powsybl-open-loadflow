@@ -6,6 +6,7 @@
  */
 package com.powsybl.openloadflow.dc;
 
+import com.powsybl.commons.reporter.Reporter;
 import com.powsybl.loadflow.LoadFlowResult;
 import com.powsybl.math.matrix.MatrixFactory;
 import com.powsybl.openloadflow.dc.equations.DcEquationSystem;
@@ -38,19 +39,25 @@ public class DcLoadFlowEngine {
 
     private final DcLoadFlowParameters parameters;
 
+    private final Reporter reporter;
+
     public DcLoadFlowEngine(LfNetwork network, MatrixFactory matrixFactory) {
         this.networks = Collections.singletonList(network);
-        parameters = new DcLoadFlowParameters(new FirstSlackBusSelector(), matrixFactory);
+        this.parameters = new DcLoadFlowParameters(new FirstSlackBusSelector(), matrixFactory);
+        this.reporter = network.getReporter();
     }
 
-    public DcLoadFlowEngine(Object network, DcLoadFlowParameters parameters) {
-        this.networks = LfNetwork.load(network, new LfNetworkParameters(parameters.getSlackBusSelector(), false, false, false, false, parameters.getPlausibleActivePowerLimit(), false));
+    public DcLoadFlowEngine(Object network, DcLoadFlowParameters parameters, Reporter reporter) {
+        LfNetworkParameters lfNetworkParameters = new LfNetworkParameters(parameters.getSlackBusSelector(), false, false, false, false, parameters.getPlausibleActivePowerLimit(), false);
+        this.networks = LfNetwork.load(network, lfNetworkParameters, reporter);
         this.parameters = Objects.requireNonNull(parameters);
+        this.reporter = reporter;
     }
 
-    public DcLoadFlowEngine(List<LfNetwork> networks, DcLoadFlowParameters parameters) {
+    public DcLoadFlowEngine(List<LfNetwork> networks, DcLoadFlowParameters parameters, Reporter reporter) {
         this.networks = networks;
         this.parameters = Objects.requireNonNull(parameters);
+        this.reporter = reporter;
     }
 
     private void distributeSlack(LfNetwork network) {

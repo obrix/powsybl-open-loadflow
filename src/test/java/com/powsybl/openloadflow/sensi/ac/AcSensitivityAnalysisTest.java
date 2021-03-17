@@ -6,6 +6,7 @@
  */
 package com.powsybl.openloadflow.sensi.ac;
 
+import com.powsybl.commons.reporter.LoggerReporter;
 import com.powsybl.computation.local.LocalComputationManager;
 import com.powsybl.iidm.network.Branch;
 import com.powsybl.iidm.network.Network;
@@ -25,6 +26,7 @@ import com.powsybl.sensitivity.factors.variables.LinearGlsk;
 import com.powsybl.sensitivity.factors.variables.PhaseTapChangerAngle;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -53,6 +55,23 @@ class AcSensitivityAnalysisTest extends AbstractSensitivityAnalysisTest {
         assertEquals(2, result.getSensitivityValues().size());
         assertEquals(0.498d, getValue(result, "GEN", "NHV1_NHV2_1"), LoadFlowAssert.DELTA_POWER);
         assertEquals(0.498d, getValue(result, "GEN", "NHV1_NHV2_2"), LoadFlowAssert.DELTA_POWER);
+    }
+
+    @Test
+    void testEsgTutoReport() {
+        Network network = EurostagTutorialExample1Factory.create();
+        LoggerReporter loggerReporter = new LoggerReporter();
+        runAcLf(network, loggerReporter);
+
+        SensitivityAnalysisParameters sensiParameters = createParameters(false, "VLLOAD_0");
+        sensiParameters.getLoadFlowParameters().setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
+        SensitivityFactorsProvider factorsProvider = n -> createFactorMatrix(network.getGeneratorStream().collect(Collectors.toList()),
+                network.getLineStream().collect(Collectors.toList()));
+        sensiProvider.run(network, VariantManagerConstants.INITIAL_VARIANT_ID, factorsProvider, Collections.emptyList(),
+                sensiParameters, LocalComputationManager.getDefault(), loggerReporter)
+                .join();
+
+        loggerReporter.export(new File("/tmp", "sensiAnalysisExportReporterTest.txt")); // TODO: compare text file with reference
     }
 
     @Test

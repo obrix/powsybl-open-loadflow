@@ -6,6 +6,7 @@
  */
 package com.powsybl.openloadflow.ac.outerloop;
 
+import com.powsybl.commons.reporter.Reporter;
 import com.powsybl.openloadflow.ac.equations.AcEquationSystem;
 import com.powsybl.openloadflow.ac.equations.AcEquationSystemCreationParameters;
 import com.powsybl.openloadflow.ac.nr.NewtonRaphson;
@@ -48,7 +49,7 @@ public class AcloadFlowEngine implements AutoCloseable {
         this.parameters = Objects.requireNonNull(parameters);
     }
 
-    public static List<LfNetwork> createNetworks(Object network, AcLoadFlowParameters parameters) {
+    public static List<LfNetwork> createNetworks(Object network, AcLoadFlowParameters parameters, Reporter reporter) {
         LfNetworkParameters networkParameters = new LfNetworkParameters(parameters.getSlackBusSelector(),
                                                                         parameters.isVoltageRemoteControl(),
                                                                         parameters.isMinImpedance(),
@@ -56,7 +57,7 @@ public class AcloadFlowEngine implements AutoCloseable {
                                                                         parameters.isBreakers(),
                                                                         parameters.getPlausibleActivePowerLimit(),
                                                                         parameters.isAddRatioToLinesWithDifferentNominalVoltageAtBothEnds());
-        return LfNetwork.load(network, networkParameters);
+        return LfNetwork.load(network, networkParameters, reporter);
     }
 
     public LfNetwork getNetwork() {
@@ -183,8 +184,8 @@ public class AcloadFlowEngine implements AutoCloseable {
         }
     }
 
-    public static List<AcLoadFlowResult> run(Object network, AcLoadFlowParameters parameters) {
-        return createNetworks(network, parameters)
+    public static List<AcLoadFlowResult> run(Object network, AcLoadFlowParameters parameters, Reporter reporter) {
+        return createNetworks(network, parameters, reporter)
                 .stream()
                 .map(n -> {
                     try (AcloadFlowEngine engine = new AcloadFlowEngine(n, parameters)) {

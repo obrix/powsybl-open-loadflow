@@ -9,6 +9,8 @@ package com.powsybl.openloadflow.network.impl;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Stopwatch;
 import com.powsybl.commons.PowsyblException;
+import com.powsybl.commons.reporter.MarkerImpl;
+import com.powsybl.commons.reporter.Reporter;
 import com.powsybl.iidm.network.*;
 import com.powsybl.openloadflow.network.*;
 import net.jafama.FastMath;
@@ -434,8 +436,8 @@ public class LfNetworkLoaderImpl implements LfNetworkLoader {
         return bus != null ? lfNetwork.getBusById(bus.getId()) : null;
     }
 
-    private static LfNetwork create(MutableInt num, List<Bus> buses, List<Switch> switches, LfNetworkParameters parameters) {
-        LfNetwork lfNetwork = new LfNetwork(num.getValue(), parameters.getSlackBusSelector());
+    private static LfNetwork create(MutableInt num, List<Bus> buses, List<Switch> switches, LfNetworkParameters parameters, Reporter reporter) {
+        LfNetwork lfNetwork = new LfNetwork(num.getValue(), parameters.getSlackBusSelector(), reporter);
         num.increment();
 
         LoadingContext loadingContext = new LoadingContext();
@@ -499,7 +501,7 @@ public class LfNetworkLoaderImpl implements LfNetworkLoader {
     }
 
     @Override
-    public Optional<List<LfNetwork>> load(Object network, LfNetworkParameters parameters) {
+    public Optional<List<LfNetwork>> load(Object network, LfNetworkParameters parameters, Reporter reporter) {
         Objects.requireNonNull(network);
         Objects.requireNonNull(parameters);
 
@@ -536,12 +538,15 @@ public class LfNetworkLoaderImpl implements LfNetworkLoader {
             MutableInt num = new MutableInt(0);
             List<LfNetwork> lfNetworks = busesByCc.entrySet().stream()
                     .filter(e -> e.getKey().getLeft() == ComponentConstants.MAIN_NUM)
-                    .map(e -> create(num, e.getValue(), switchesByCc.get(e.getKey()), parameters))
+                    .map(e -> create(num, e.getValue(), switchesByCc.get(e.getKey()), parameters, reporter))
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
 
             stopwatch.stop();
-            LOGGER.debug(PERFORMANCE_MARKER, "LF networks created in {} ms", stopwatch.elapsed(TimeUnit.MILLISECONDS));
+
+            long elapsedTime = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+            reporter.report("loadNetworkElapsedTime", "LF networks created in ${elapsedTime} ms", "elapsedTime", elapsedTime, MarkerImpl.PERFORMANCE);
+            LOGGER.debug(PERFORMANCE_MARKER, "LF networks created in {} ms", elapsedTime);
 
             return Optional.of(lfNetworks);
         }

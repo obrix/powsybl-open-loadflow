@@ -7,6 +7,7 @@
 package com.powsybl.openloadflow.sensi;
 
 import com.google.auto.service.AutoService;
+import com.powsybl.commons.reporter.Reporter;
 import com.powsybl.computation.ComputationManager;
 import com.powsybl.contingency.Contingency;
 import com.powsybl.iidm.network.Network;
@@ -76,13 +77,26 @@ public class OpenSensitivityAnalysisProvider implements SensitivityAnalysisProvi
         return lfParametersExt;
     }
 
-    @Override
     public CompletableFuture<SensitivityAnalysisResult> run(Network network, String workingStateId,
                                                             SensitivityFactorsProvider sensitivityFactorsProvider,
                                                             List<Contingency> contingencies,
                                                             SensitivityAnalysisParameters sensitivityAnalysisParameters,
                                                             ComputationManager computationManager) {
+        return run(network, workingStateId, sensitivityFactorsProvider, contingencies, sensitivityAnalysisParameters, computationManager, Reporter.NO_OP);
+    }
+
+    @Override
+    public CompletableFuture<SensitivityAnalysisResult> run(Network network, String workingStateId,
+                                                            SensitivityFactorsProvider sensitivityFactorsProvider,
+                                                            List<Contingency> contingencies,
+                                                            SensitivityAnalysisParameters sensitivityAnalysisParameters,
+                                                            ComputationManager computationManager,
+                                                            Reporter reporter) {
+
+        Reporter sensiReporter = reporter.createChild("sensitivityAnalysis", "Sensitivity analysis",
+            Map.of("networkId", network.getId(), "variantId", workingStateId));
         return CompletableFuture.supplyAsync(() -> {
+
             network.getVariantManager().setWorkingVariant(workingStateId);
 
             List<SensitivityFactor> factors = sensitivityFactorsProvider.getCommonFactors(network);
@@ -106,9 +120,9 @@ public class OpenSensitivityAnalysisProvider implements SensitivityAnalysisProvi
 
             Pair<List<SensitivityValue>, Map<String, List<SensitivityValue>>> sensitivityValues;
             if (lfParameters.isDc()) {
-                sensitivityValues = dcSensitivityAnalysis.analyse(network, factors, propagatedContingencies, lfParameters, lfParametersExt);
+                sensitivityValues = dcSensitivityAnalysis.analyse(network, factors, propagatedContingencies, lfParameters, lfParametersExt, sensiReporter);
             } else {
-                sensitivityValues = acSensitivityAnalysis.analyse(network, factors, propagatedContingencies, lfParameters, lfParametersExt);
+                sensitivityValues = acSensitivityAnalysis.analyse(network, factors, propagatedContingencies, lfParameters, lfParametersExt, sensiReporter);
             }
 
             boolean ok = true;
