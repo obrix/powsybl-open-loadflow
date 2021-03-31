@@ -19,14 +19,20 @@ public final class LfVscConverterStationImpl extends AbstractLfGenerator {
 
     private final VscConverterStation station;
 
+    private final double targetQ;
+
     private LfVscConverterStationImpl(VscConverterStation station, boolean breakers, LfNetworkLoadingReport report) {
         super(getHvdcLineTargetP(station));
         this.station = station;
 
+        boolean outOfService = HvdcConverterStations.isOutOfService(station.getHvdcLine());
+
         // local control only
-        if (station.isVoltageRegulatorOn()) {
+        if (!outOfService && station.isVoltageRegulatorOn()) {
             setVoltageControl(station.getVoltageSetpoint(), station.getTerminal(), breakers, report);
         }
+
+        targetQ =  outOfService ? 0 : station.getReactivePowerSetpoint() / PerUnit.SB;
     }
 
     public static LfVscConverterStationImpl create(VscConverterStation station, boolean breakers, LfNetworkLoadingReport report) {
@@ -35,14 +41,18 @@ public final class LfVscConverterStationImpl extends AbstractLfGenerator {
     }
 
     private static double getHvdcLineTargetP(VscConverterStation vscCs) {
-        // The active power setpoint is always positive.
-        // If the converter station is at side 1 and is rectifier, targetP should be negative.
-        // If the converter station is at side 1 and is inverter, targetP should be positive.
-        // If the converter station is at side 2 and is rectifier, targetP should be negative.
-        // If the converter station is at side 2 and is inverter, targetP should be positive.
-        boolean isConverterStationRectifier = HvdcConverterStations.isRectifier(vscCs);
         HvdcLine line = vscCs.getHvdcLine();
-        return (isConverterStationRectifier ? -1 : 1) * line.getActivePowerSetpoint() * (1 + (isConverterStationRectifier ? 1 : -1) * vscCs.getLossFactor() / 100);
+        if (HvdcConverterStations.isOutOfService(line)) {
+            return 0;
+        } else {
+            // The active power setpoint is always positive.
+            // If the converter station is at side 1 and is rectifier, targetP should be negative.
+            // If the converter station is at side 1 and is inverter, targetP should be positive.
+            // If the converter station is at side 2 and is rectifier, targetP should be negative.
+            // If the converter station is at side 2 and is inverter, targetP should be positive.
+            boolean isConverterStationRectifier = HvdcConverterStations.isRectifier(vscCs);
+            return (isConverterStationRectifier ? -1 : 1) * line.getActivePowerSetpoint() * (1 + (isConverterStationRectifier ? 1 : -1) * vscCs.getLossFactor() / 100);
+        }
     }
 
     @Override
@@ -52,7 +62,7 @@ public final class LfVscConverterStationImpl extends AbstractLfGenerator {
 
     @Override
     public double getTargetQ() {
-        return station.getReactivePowerSetpoint() / PerUnit.SB;
+        return targetQ;
     }
 
     @Override
@@ -82,8 +92,14 @@ public final class LfVscConverterStationImpl extends AbstractLfGenerator {
 
     @Override
     public void updateState() {
-        station.getTerminal()
-                .setP(-targetP)
-                .setQ(Double.isNaN(calculatedQ) ? -station.getReactivePowerSetpoint() : -calculatedQ);
+        if (HvdcConverterStations.isOutOfService(station.getHvdcLine())) {
+            station.getTerminal()
+                    .setP(0)
+                    .setQ(0);
+        } else {
+            station.getTerminal()
+                    .setP(-targetP)
+                    .setQ(Double.isNaN(calculatedQ) ? -station.getReactivePowerSetpoint() : -calculatedQ);
+        }
     }
 }

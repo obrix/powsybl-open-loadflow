@@ -25,4 +25,9 @@ public final class HvdcConverterStations {
         return (line.getConverterStation1() == station && line.getConvertersMode() == HvdcLine.ConvertersMode.SIDE_1_RECTIFIER_SIDE_2_INVERTER)
                 || (line.getConverterStation2() == station && line.getConvertersMode() == HvdcLine.ConvertersMode.SIDE_1_INVERTER_SIDE_2_RECTIFIER);
     }
+
+    public static boolean isOutOfService(HvdcLine hvdcLine) {
+        return hvdcLine.getConverterStation1().getTerminal().getBusView().getBus() == null
+                || hvdcLine.getConverterStation2().getTerminal().getBusView().getBus() == null;
+    }
 }

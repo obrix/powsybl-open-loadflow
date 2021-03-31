@@ -27,7 +27,7 @@ class AcLoadFlowVscTest {
         Network network = HvdcNetworkFactory.createVsc();
         LoadFlow.Runner loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
         LoadFlowParameters parameters = new LoadFlowParameters().setNoGeneratorReactiveLimits(true)
-                                             .setDistributedSlack(false);
+                                             .setDistributedSlack(true);
         OpenLoadFlowParameters parametersExt = new OpenLoadFlowParameters()
                 .setSlackBusSelector(new MostMeshedSlackBusSelector());
         parameters.addExtension(OpenLoadFlowParameters.class, parametersExt);
@@ -63,5 +63,45 @@ class AcLoadFlowVscTest {
         assertReactivePowerEquals(615.733, l12.getTerminal1());
         assertActivePowerEquals(-100.55, l12.getTerminal2());
         assertReactivePowerEquals(-608.046, l12.getTerminal2());
+    }
+
+    @Test
+    void testOpen() {
+        Network network = HvdcNetworkFactory.createVsc();
+        network.getHvdcLine("hvdc23").getConverterStation2().getTerminal().disconnect();
+        LoadFlow.Runner loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
+        LoadFlowParameters parameters = new LoadFlowParameters().setNoGeneratorReactiveLimits(true)
+                .setDistributedSlack(true);
+        OpenLoadFlowParameters parametersExt = new OpenLoadFlowParameters()
+                .setSlackBusSelector(new MostMeshedSlackBusSelector());
+        parameters.addExtension(OpenLoadFlowParameters.class, parametersExt);
+        LoadFlowResult result = loadFlowRunner.run(network, parameters);
+        assertTrue(result.isOk());
+
+        Bus bus1 = network.getBusView().getBus("vl1_0");
+        assertVoltageEquals(390, bus1);
+        assertAngleEquals(0, bus1);
+
+        Bus bus2 = network.getBusView().getBus("vl2_0");
+        assertVoltageEquals(389.794, bus2);
+        assertAngleEquals(-0.052765, bus2);
+
+        Generator g1 = network.getGenerator("g1");
+        assertActivePowerEquals(-50.017, g1.getTerminal());
+        assertReactivePowerEquals(-10.051, g1.getTerminal());
+
+        VscConverterStation cs2 = network.getVscConverterStation("cs2");
+        assertActivePowerEquals(0, cs2.getTerminal());
+        assertReactivePowerEquals(0, cs2.getTerminal());
+
+        VscConverterStation cs3 = network.getVscConverterStation("cs3");
+        assertTrue(Double.isNaN(cs3.getTerminal().getP()));
+        assertTrue(Double.isNaN(cs3.getTerminal().getQ()));
+
+        Line l12 = network.getLine("l12");
+        assertActivePowerEquals(50.017, l12.getTerminal1());
+        assertReactivePowerEquals(10.051, l12.getTerminal1());
+        assertActivePowerEquals(-50, l12.getTerminal2());
+        assertReactivePowerEquals(-10, l12.getTerminal2());
     }
 }

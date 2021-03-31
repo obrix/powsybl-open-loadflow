@@ -27,7 +27,7 @@ class AcLoadFlowLccTest {
         Network network = HvdcNetworkFactory.createLcc();
         LoadFlow.Runner loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
         LoadFlowParameters parameters = new LoadFlowParameters().setNoGeneratorReactiveLimits(true)
-                                             .setDistributedSlack(false);
+                                             .setDistributedSlack(true);
         OpenLoadFlowParameters parametersExt = new OpenLoadFlowParameters()
                 .setSlackBusSelector(new MostMeshedSlackBusSelector());
         parameters.addExtension(OpenLoadFlowParameters.class, parametersExt);
@@ -46,6 +46,10 @@ class AcLoadFlowLccTest {
         assertVoltageEquals(380, bus3);
         assertAngleEquals(0, bus3);
 
+        Generator g1 = network.getGenerator("g1");
+        assertActivePowerEquals(-100.13, g1.getTerminal());
+        assertReactivePowerEquals(-47.78, g1.getTerminal());
+
         LccConverterStation cs2 = network.getLccConverterStation("cs2");
         assertActivePowerEquals(50.05, cs2.getTerminal());
         assertReactivePowerEquals(37.538, cs2.getTerminal());
@@ -53,5 +57,39 @@ class AcLoadFlowLccTest {
         LccConverterStation cs3 = network.getLccConverterStation("cs3");
         assertActivePowerEquals(-49.45, cs3.getTerminal());
         assertReactivePowerEquals(37.087, cs3.getTerminal());
+    }
+
+    @Test
+    void testOpen() {
+        Network network = HvdcNetworkFactory.createLcc();
+        network.getHvdcLine("hvdc23").getConverterStation2().getTerminal().disconnect();
+        LoadFlow.Runner loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
+        LoadFlowParameters parameters = new LoadFlowParameters().setNoGeneratorReactiveLimits(true)
+                .setDistributedSlack(true);
+        OpenLoadFlowParameters parametersExt = new OpenLoadFlowParameters()
+                .setSlackBusSelector(new MostMeshedSlackBusSelector());
+        parameters.addExtension(OpenLoadFlowParameters.class, parametersExt);
+        LoadFlowResult result = loadFlowRunner.run(network, parameters);
+        assertTrue(result.isOk());
+
+        Bus bus1 = network.getBusView().getBus("vl1_0");
+        assertVoltageEquals(390, bus1);
+        assertAngleEquals(0, bus1);
+
+        Bus bus2 = network.getBusView().getBus("vl2_0");
+        assertVoltageEquals(389.7946, bus2);
+        assertAngleEquals(-0.052765, bus2);
+
+        Generator g1 = network.getGenerator("g1");
+        assertActivePowerEquals(-50.017, g1.getTerminal());
+        assertReactivePowerEquals(-10.051, g1.getTerminal());
+
+        LccConverterStation cs2 = network.getLccConverterStation("cs2");
+        assertActivePowerEquals(0, cs2.getTerminal());
+        assertReactivePowerEquals(0, cs2.getTerminal());
+
+        LccConverterStation cs3 = network.getLccConverterStation("cs3");
+        assertTrue(Double.isNaN(cs3.getTerminal().getP()));
+        assertTrue(Double.isNaN(cs3.getTerminal().getQ()));
     }
 }
