@@ -99,7 +99,7 @@ class GeneratorRemoteControlTest extends AbstractLoadFlowNetworkFactory {
                 .setMaxP(200)
                 .setTargetP(100)
                 .setTargetV(413.4) // 22 413.4
-                .setVoltageRegulatorOn(true)
+                .setRegulationMode(RegulationMode.VOLTAGE)
                 .setRegulatingTerminal(l4.getTerminal())
                 .add();
         g2 = b2.getVoltageLevel()
@@ -112,7 +112,7 @@ class GeneratorRemoteControlTest extends AbstractLoadFlowNetworkFactory {
                 .setMaxP(200)
                 .setTargetP(100)
                 .setTargetV(413.4)
-                .setVoltageRegulatorOn(true)
+                .setRegulationMode(RegulationMode.VOLTAGE)
                 .setRegulatingTerminal(l4.getTerminal())
                 .add();
         g3 = b3.getVoltageLevel()
@@ -125,7 +125,7 @@ class GeneratorRemoteControlTest extends AbstractLoadFlowNetworkFactory {
                 .setMaxP(200)
                 .setTargetP(100)
                 .setTargetV(413.4)
-                .setVoltageRegulatorOn(true)
+                .setRegulationMode(RegulationMode.VOLTAGE)
                 .setRegulatingTerminal(l4.getTerminal())
                 .add();
         tr1 = s.newTwoWindingsTransformer()
@@ -337,7 +337,7 @@ class GeneratorRemoteControlTest extends AbstractLoadFlowNetworkFactory {
 
     @Test
     void testWith2Generators() {
-        g3.setTargetQ(10).setVoltageRegulatorOn(false);
+        g3.setTargetQ(10).setRegulationMode(RegulationMode.OFF);
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isOk());
         assertVoltageEquals(21.616159, b1);
@@ -381,7 +381,7 @@ class GeneratorRemoteControlTest extends AbstractLoadFlowNetworkFactory {
                 .setMaxP(200)
                 .setTargetP(100)
                 .setTargetV(413.4)
-                .setVoltageRegulatorOn(true)
+                .setRegulationMode(RegulationMode.VOLTAGE)
                 .add();
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isOk());
@@ -401,7 +401,7 @@ class GeneratorRemoteControlTest extends AbstractLoadFlowNetworkFactory {
                 .setMaxP(200)
                 .setTargetP(100)
                 .setTargetV(413.4)
-                .setVoltageRegulatorOn(true)
+                .setRegulationMode(RegulationMode.VOLTAGE)
                 .add();
         result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isOk());
@@ -414,7 +414,7 @@ class GeneratorRemoteControlTest extends AbstractLoadFlowNetworkFactory {
         // check that of we switch g4 PQ with Q=+-10MVar, generators that still regulate voltage already have a correct
         // amount of reactive power
         g4.setTargetQ(-10)
-                .setVoltageRegulatorOn(false);
+                .setRegulationMode(RegulationMode.OFF);
         result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isOk());
         assertReactivePowerEquals(-54.646, g1.getTerminal());
@@ -433,9 +433,9 @@ class GeneratorRemoteControlTest extends AbstractLoadFlowNetworkFactory {
         assertReactivePowerEquals(-49.563, g4bis.getTerminal());
 
         // same test but with one of the remote generator switched PQ
-        g4.setVoltageRegulatorOn(true);
+        g4.setRegulationMode(RegulationMode.VOLTAGE);
         g2.setTargetQ(-10)
-                .setVoltageRegulatorOn(false);
+                .setRegulationMode(RegulationMode.OFF);
         result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isOk());
         assertReactivePowerEquals(-54.51, g1.getTerminal());
@@ -454,9 +454,9 @@ class GeneratorRemoteControlTest extends AbstractLoadFlowNetworkFactory {
         assertReactivePowerEquals(-49.449, g4bis.getTerminal());
 
         // try to switch off regulation of the 3 remote generators
-        g1.setTargetQ(10).setVoltageRegulatorOn(false);
-        g2.setTargetQ(10).setVoltageRegulatorOn(false);
-        g3.setTargetQ(10).setVoltageRegulatorOn(false);
+        g1.setTargetQ(10).setRegulationMode(RegulationMode.OFF);
+        g2.setTargetQ(10).setRegulationMode(RegulationMode.OFF);
+        g3.setTargetQ(10).setRegulationMode(RegulationMode.OFF);
         result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isOk());
         assertReactivePowerEquals(-10, g1.getTerminal());

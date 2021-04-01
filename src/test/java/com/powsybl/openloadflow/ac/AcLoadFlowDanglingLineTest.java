@@ -61,7 +61,7 @@ class AcLoadFlowDanglingLineTest {
                 .setTargetV(390)
                 .setMinP(0)
                 .setMaxP(150)
-                .setVoltageRegulatorOn(true)
+                .setRegulationMode(RegulationMode.VOLTAGE)
                 .add();
         VoltageLevel vl2 = s2.newVoltageLevel()
                 .setId("vl2")
@@ -131,7 +131,7 @@ class AcLoadFlowDanglingLineTest {
     @Test
     void testWithVoltageRegulationOn() {
         g1.setTargetQ(0);
-        g1.setVoltageRegulatorOn(false);
+        g1.setRegulationMode(RegulationMode.OFF);
         dl1.getGeneration().setVoltageRegulationOn(true);
         dl1.getGeneration().setMinP(0);
         dl1.getGeneration().setMaxP(10);

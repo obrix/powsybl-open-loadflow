@@ -70,7 +70,7 @@ class AcLoadFlow3wtTest {
                 .setTargetV(405)
                 .setMinP(0)
                 .setMaxP(500)
-                .setVoltageRegulatorOn(true)
+                .setRegulationMode(RegulationMode.VOLTAGE)
                 .add();
 
         VoltageLevel vl2 = s.newVoltageLevel()

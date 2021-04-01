@@ -282,7 +282,7 @@ class AcLoadFlowTransformerControlTest {
                 .setMaxP(35.0)
                 .setTargetP(2)
                 .setTargetV(34.0)
-                .setVoltageRegulatorOn(true)
+                .setRegulationMode(RegulationMode.VOLTAGE)
                 .add();
 
         parameters.setTransformerVoltageControlOn(true);
@@ -812,7 +812,7 @@ class AcLoadFlowTransformerControlTest {
                 .setMaxP(140)
                 .setTargetP(25)
                 .setTargetV(135)
-                .setVoltageRegulatorOn(true)
+                .setRegulationMode(RegulationMode.VOLTAGE)
                 .add();
 
         Substation substation = network.newSubstation()

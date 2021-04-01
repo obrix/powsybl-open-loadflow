@@ -46,7 +46,7 @@ class GeneratorTargetVoltageInconsistencyTest {
                 .setMaxP(200)
                 .setTargetP(100)
                 .setTargetV(23)
-                .setVoltageRegulatorOn(true)
+                .setRegulationMode(RegulationMode.VOLTAGE)
                 .add();
         vl1.newGenerator()
                 .setId("g2")
@@ -57,7 +57,7 @@ class GeneratorTargetVoltageInconsistencyTest {
                 .setMaxP(200)
                 .setTargetP(100)
                 .setTargetV(22)
-                .setVoltageRegulatorOn(true)
+                .setRegulationMode(RegulationMode.VOLTAGE)
                 .add();
 
         VoltageLevel vl2 = s.newVoltageLevel()
@@ -136,7 +136,7 @@ class GeneratorTargetVoltageInconsistencyTest {
                 .setMaxP(200)
                 .setTargetP(100)
                 .setTargetV(413)
-                .setVoltageRegulatorOn(true)
+                .setRegulationMode(RegulationMode.VOLTAGE)
                 .setRegulatingTerminal(ld.getTerminal())
                 .add();
 
@@ -157,7 +157,7 @@ class GeneratorTargetVoltageInconsistencyTest {
                 .setMaxP(200)
                 .setTargetP(100)
                 .setTargetV(225)
-                .setVoltageRegulatorOn(true)
+                .setRegulationMode(RegulationMode.VOLTAGE)
                 .setRegulatingTerminal(ld.getTerminal())
                 .add();
 
@@ -228,7 +228,7 @@ class GeneratorTargetVoltageInconsistencyTest {
                 .setMaxP(200)
                 .setTargetP(100)
                 .setTargetV(413)
-                .setVoltageRegulatorOn(true)
+                .setRegulationMode(RegulationMode.VOLTAGE)
                 .add();
 
         VoltageLevel vl1 = s.newVoltageLevel()
@@ -248,7 +248,7 @@ class GeneratorTargetVoltageInconsistencyTest {
                 .setMaxP(200)
                 .setTargetP(100)
                 .setTargetV(412)
-                .setVoltageRegulatorOn(true)
+                .setRegulationMode(RegulationMode.VOLTAGE)
                 .setRegulatingTerminal(g2.getTerminal())
                 .add();
 
